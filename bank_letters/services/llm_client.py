@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 from openai import OpenAI
 from bank_letters.services.models import RequestAnalysis, EmailGeneration
@@ -46,10 +47,18 @@ class LLMClient:
             print(f"Ошибка при анализе запроса: {e}")
             return self.processor.process_analysis_response(None)
 
+    import json
+    import re
+
     def generate_response(self, old_text_email, user_commentary, style):
-        """Генерация ответа с преобразованием результата"""
+        """Генерация ответа в указанном стиле"""
         basic_prompt = EMAIL_GENERATION_PROMPTS[style]
-        finished_prompt_text = f'{basic_prompt}\nТекст письма, на которое нужно ответить:\n{old_text_email}\n\nКомментарии пользователя, на основе которых надо написать ответное письмо:\n{user_commentary}'
+
+        # Всегда гарантируем, что есть какой-то текст
+        if not user_commentary or user_commentary.strip() == '':
+            user_commentary = "Сгенерируй профессиональный ответ на письмо."
+
+        finished_prompt_text = f'{basic_prompt}\nТекст письма:\n{old_text_email}\n\nДополнительные указания:\n{user_commentary}'
 
         model = self.make_model(model_name=YAGPT_MODEL_NAME)
         try:
@@ -60,9 +69,45 @@ class LLMClient:
                 input=finished_prompt_text
             )
 
-            # Обрабатываем сгенерированный ответ
-            return self.processor.process_generation_response(res.output_parsed)
+            return res.output_parsed.response_email
 
         except Exception as e:
             print(f"Ошибка при генерации ответа: {e}")
-            return self.processor.process_generation_response(None)
+
+            # Пробуем альтернативный способ - прямой вызов без парсинга
+            try:
+                return self._generate_response_fallback(finished_prompt_text, model)
+            except Exception as fallback_error:
+                print(f"Fallback также не сработал: {fallback_error}")
+                return f"Автоматический ответ: Благодарим за обращение. Ваше письмо получено и находится в обработке. С уважением, Банк."
+
+    def _generate_response_fallback(self, prompt, model):
+        """Альтернативный способ генерации ответа"""
+        try:
+            # Используем обычный completion вместо parse
+            response = self.client.responses.create(
+                model=model,
+                instructions="Ты - AI ассистент для генерации ответов на банковские письма. Генерируй профессиональные ответы.",
+                input=prompt
+            )
+
+            # Очищаем ответ от управляющих символов
+            clean_text = self._clean_response_text(response.output_text)
+            return clean_text
+
+        except Exception as e:
+            print(f"Ошибка в fallback методе: {e}")
+            raise e
+
+    def _clean_response_text(self, text):
+        """Очищает текст от управляющих символов"""
+        if not text:
+            return "Не удалось сгенерировать ответ."
+
+        # Удаляем управляющие символы (0x00-0x1F), кроме табуляции и переноса строк
+        clean_text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text)
+
+        # Удаляем лишние пробелы
+        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+
+        return clean_text

@@ -21,7 +21,7 @@
                     </span>
                 </p>
                 <p><strong>Тип:</strong> {{ letter.get_classification_display|default:"Не определен" }}</p>
-                <p><strong>Критичность:</strong> {{ letter.get_criticality_level_display|default:"Не определена" }}</p>
+                <strong>Критичность:</strong> {{ letter.get_criticality_level_display|default:"Не определена" }}</p>
                 <p><strong>Стиль ответа:</strong> {{ letter.get_response_style_display|default:"Не определен" }}</p>
             </div>
         </div>
@@ -54,6 +54,26 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Финальный ответ (показывается только для завершенных писем) -->
+{% if letter.status == 'done' and letter.final_response %}
+<div class="card mb-4 border-success">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">Финальный ответ</h5>
+    </div>
+    <div class="card-body">
+        <div class="bg-light p-3 border rounded">
+            {{ letter.final_response|linebreaks }}
+        </div>
+        <div class="mt-3">
+            <small class="text-muted">
+                <strong>Стиль ответа:</strong> {{ letter.get_response_style_display }} |
+                <strong>Сгенерирован:</strong> {{ letter.updated_at|date:"d.m.Y H:i" }}
+            </small>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Краткое содержание -->
 <div class="card mb-4">
@@ -101,6 +121,34 @@
         </div>
     </div>
 </div>
+
+<!-- Результаты анализа (если есть) -->
+{% if analysis %}
+<div class="card">
+    <div class="card-header">
+        <h5>Результаты анализа</h5>
+    </div>
+    <div class="card-body">
+        <p><strong>Краткое содержание:</strong> {{ letter.summary|default:"Не сгенерировано" }}</p>
+        <p><strong>Тип письма:</strong> {{ letter.get_classification_display|default:"Не определен" }}</p>
+        <p><strong>Уровень критичности:</strong> {{ letter.get_criticality_level_display|default:"Не определена" }}</p>
+        <p><strong>Рекомендуемый стиль ответа:</strong> {{ letter.get_response_style_display|default:"Не определен" }}</p>
+
+        {% if letter.processing_time_hours %}
+            <p><strong>Время на обработку:</strong> {{ letter.processing_time_hours }} часов</p>
+        {% endif %}
+
+        {% if analysis.legal_references %}
+        <p><strong>Нормативные ссылки:</strong></p>
+        <ul>
+            {% for ref in analysis.legal_references %}
+                <li>{{ ref }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 <div class="mt-4">
     <a href="{% url 'letter_list' %}" class="btn btn-secondary">← Назад к списку</a>

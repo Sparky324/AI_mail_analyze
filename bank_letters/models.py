@@ -88,6 +88,12 @@ class Letter(models.Model):
         verbose_name="Дедлайн по SLA"
     )
 
+    final_response = models.TextField(
+        blank=True,
+        verbose_name="Финальный ответ",
+        help_text="Текст ответа, который будет отправлен отправителю"
+    )
+
     # Статус письма
     status = models.CharField(
         max_length=20,

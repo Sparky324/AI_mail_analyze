@@ -148,16 +148,18 @@ def generate_responses(request, letter_id):
     # Обработка формы выбора стиля и пожеланий
     if request.method == 'POST' and 'generate_responses' in request.POST:
         selected_style = request.POST.get('response_style')
-        user_commentary = request.POST.get('user_commentary', '')
+        user_commentary = request.POST.get('user_commentary', '').strip()
 
         if selected_style:
             llm_client = LLMClient()
 
-            try:
-                analysis_result = AnalysisResult.objects.get(letter=letter)
-                analysis_data = analysis_result.analysis_data
-            except AnalysisResult.DoesNotExist:
-                analysis_data = {}
+            # Если пожелания пустые, создаем базовое описание
+            if not user_commentary:
+                user_commentary = f"""
+                Краткое содержание письма: {letter.summary}
+                Тип письма: {letter.get_classification_display()}
+                Уровень критичности: {letter.get_criticality_level_display()}
+                """
 
             # Генерируем ответ только для выбранного стиля
             response_text = llm_client.generate_response(
@@ -180,9 +182,10 @@ def generate_responses(request, letter_id):
             generated_response.is_selected = True
             generated_response.save()
 
-            # Обновляем статус письма
+            # Сохраняем финальный ответ в письмо
+            letter.final_response = response_text
             letter.status = 'response_generated'
-            letter.response_style = int(selected_style)  # Сохраняем выбранный стиль в письмо
+            letter.response_style = int(selected_style)
             letter.save()
 
             return redirect('generate_responses', letter_id=letter.id)
@@ -202,12 +205,13 @@ def generate_responses(request, letter_id):
             selected_response.is_selected = True
             selected_response.save()
 
-            # Обновляем стиль ответа в письме
+            # Сохраняем финальный ответ в письмо
+            letter.final_response = selected_response.response_text
             letter.response_style = selected_response.response_style
             letter.status = 'done'
             letter.save()
 
-            return redirect('letter_list')
+            return redirect('letter_detail', letter_id=letter.id)
 
     # Получение сгенерированных ответов
     responses = GeneratedResponse.objects.filter(letter=letter)
