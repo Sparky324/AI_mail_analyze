@@ -43,3 +43,9 @@ class RequestAnalysis(BaseModel):
         max_length=500,
         description="Краткое содержание запроса"
     )
+
+class EmailGeneration(BaseModel):
+    response_email: str = Field(
+        max_length=10000,
+        description="Сгенерированное ответное письмо"
+    )
