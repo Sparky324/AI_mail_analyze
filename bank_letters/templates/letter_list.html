@@ -16,7 +16,8 @@
                 <select name="status" class="form-select" onchange="this.form.submit()">
                     <option value="">Все статусы</option>
                     {% for status_value, status_name in status_choices %}
-                        <option value="{{ status_value }}" {% if request.GET.status == status_value %}selected{% endif %}>
+                        <option value="{{ status_value }}"
+                            {% if request.GET.status == status_value %}selected{% endif %}>
                             {{ status_name }}
                         </option>
                     {% endfor %}
@@ -27,20 +28,51 @@
                 <select name="classification" class="form-select" onchange="this.form.submit()">
                     <option value="">Все типы</option>
                     {% for class_value, class_name in classification_choices %}
-                        <option value="{{ class_value }}" {% if request.GET.classification == class_value %}selected{% endif %}>
+                        <option value="{{ class_value }}"
+                            {% if request.GET.classification == class_value|stringformat:"i" %}selected{% endif %}>
                             {{ class_name }}
                         </option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-4">
-                <a href="{% url 'letter_list' %}" class="btn btn-outline-secondary mt-4">Сбросить</a>
+                <a href="{% url 'letter_list' %}" class="btn btn-outline-secondary mt-4">Сбросить фильтры</a>
             </div>
         </form>
+
+        <!-- Покажем активные фильтры -->
+        {% if request.GET.status or request.GET.classification %}
+        <div class="mt-3">
+            <small class="text-muted">Активные фильтры:</small>
+            {% if request.GET.status %}
+                {% for status_value, status_name in status_choices %}
+                    {% if status_value == request.GET.status %}
+                        <span class="badge bg-primary me-1">
+                            Статус: {{ status_name }}
+                            <a href="?{% if request.GET.classification %}classification={{ request.GET.classification }}{% endif %}"
+                               class="text-white ms-1 text-decoration-none">×</a>
+                        </span>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+            {% if request.GET.classification %}
+                {% for class_value, class_name in classification_choices %}
+                    {% if class_value|stringformat:"i" == request.GET.classification %}
+                        <span class="badge bg-primary me-1">
+                            Тип: {{ class_name }}
+                            <a href="?{% if request.GET.status %}status={{ request.GET.status }}{% endif %}"
+                               class="text-white ms-1 text-decoration-none">×</a>
+                        </span>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 
-<!-- Список писем -->
+<!-- Остальной код без изменений -->
 {% if letters %}
     {% for letter in letters %}
     <div class="card letter-card status-{{ letter.status }} mb-3">
@@ -97,7 +129,11 @@
     {% endfor %}
 {% else %}
     <div class="alert alert-info">
-        Писем пока нет. <a href="{% url 'upload_letter' %}">Добавьте первое письмо</a>.
+        {% if request.GET.status or request.GET.classification %}
+            Писем по выбранным фильтрам не найдено. <a href="{% url 'letter_list' %}">Показать все письма</a>.
+        {% else %}
+            Писем пока нет. <a href="{% url 'upload_letter' %}">Добавьте первое письмо</a>.
+        {% endif %}
     </div>
 {% endif %}
 {% endblock %}

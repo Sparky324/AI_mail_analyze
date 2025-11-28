@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Письмо #{{ letter.id }}</h1>
-    <a href="{% url 'letter_list' %}" class="btn btn-secondary">← Назад</a>
+    <a href="{% url 'letter_list' %}" class="btn btn-secondary">← Назад к списку</a>
 </div>
 
 <div class="row">
@@ -16,7 +16,7 @@
                 <p><strong>Отправитель:</strong> {{ letter.sender }}</p>
                 <p><strong>Тема:</strong> {{ letter.subject }}</p>
                 <p><strong>Статус:</strong>
-                    <span class="badge bg-{% if letter.status == 'new' %}secondary{% elif letter.status == 'analyzed' %}info{% elif letter.status == 'response_generated' %}warning{% elif letter.status == 'done' %}success{% else %}dark{% endif %}">
+                    <span class="badge bg-{% if letter.status == 'new' %}secondary{% elif letter.status == 'analyzed' %}info{% elif letter.status == 'response_generated' %}warning{% else %}success{% endif %}">
                         {{ letter.get_status_display }}
                     </span>
                 </p>
@@ -39,7 +39,7 @@
                     {% elif letter.status == 'analyzed' %}
                         <a href="{% url 'generate_responses' letter.id %}" class="btn btn-success">Генерировать ответы</a>
                     {% elif letter.status == 'response_generated' %}
-                        <a href="{% url 'generate_responses' letter.id %}" class="btn btn-info">✏Выбрать ответ</a>
+                        <a href="{% url 'generate_responses' letter.id %}" class="btn btn-info">Выбрать ответ</a>
                     {% endif %}
 
                     <form method="post" action="{% url 'update_letter_status' letter.id %}">
@@ -52,34 +52,54 @@
     </div>
 </div>
 
+<!-- Краткое содержание -->
 <div class="card mb-4">
     <div class="card-header">
-        <h5>Текст письма</h5>
+        <h5>Краткое содержание</h5>
     </div>
     <div class="card-body">
-        <pre style="white-space: pre-wrap; font-family: inherit;">{{ letter.original_text }}</pre>
+        <p>{{ letter.summary|default:"Краткое содержание не сгенерировано" }}</p>
     </div>
 </div>
 
-{% if analysis %}
-<div class="card">
+<!-- Сроки обработки -->
+<div class="card mb-4">
     <div class="card-header">
-        <h5>Результаты анализа</h5>
+        <h5>Сроки обработки</h5>
     </div>
     <div class="card-body">
-        <p><strong>Суть запроса:</strong> {{ letter.main_request }}</p>
-        <p><strong>Уровень срочности:</strong> {{ letter.urgency_level }}</p>
-        <p><strong>Уверенность анализа:</strong> {{ letter.analysis_confidence|floatformat:2 }}</p>
-
-        {% if letter.legal_references %}
-        <p><strong>Нормативные ссылки:</strong></p>
-        <ul>
-            {% for ref in letter.legal_references %}
-                <li>{{ ref }}</li>
-            {% endfor %}
-        </ul>
+        {% if letter.processing_time_hours %}
+            <p><strong>Время на обработку:</strong> {{ letter.processing_time_hours }} часов</p>
+        {% endif %}
+        {% if letter.sla_deadline %}
+            <p><strong>Дедлайн по SLA:</strong> {{ letter.sla_deadline|date:"d.m.Y H:i" }}</p>
+            <p><small class="text-{% if letter.sla_deadline < now %}danger{% else %}success{% endif %}">
+                Осталось: {{ letter.sla_deadline|timeuntil }}
+            </small></p>
+        {% else %}
+            <p><strong>Дедлайн по SLA:</strong> Не установлен</p>
         {% endif %}
     </div>
 </div>
-{% endif %}
+
+<!-- Исходное письмо -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>Исходное письмо</h5>
+    </div>
+    <div class="card-body">
+        <p><strong>Отправитель:</strong> {{ letter.sender }}</p>
+        <p><strong>Тема:</strong> {{ letter.subject }}</p>
+        <div class="mt-3">
+            <strong>Текст письма:</strong>
+            <div class="border p-3 mt-2 bg-light">
+                {{ letter.original_text|linebreaks }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'letter_list' %}" class="btn btn-secondary">← Назад к списку</a>
+</div>
 {% endblock %}

@@ -1,29 +1,97 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1 class="mb-4">Статистика</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Статистика</h1>
+    <a href="{% url 'letter_list' %}" class="btn btn-secondary">← Назад к списку</a>
+</div>
 
 <div class="row">
+    <!-- Общая статистика -->
     <div class="col-md-4">
         <div class="card text-white bg-primary mb-4">
-            <div class="card-body">
-                <h2 class="card-title">{{ total_letters }}</h2>
-                <p class="card-text">Всего писем</p>
+            <div class="card-body text-center">
+                <h2 class="card-title display-4">{{ total_letters }}</h2>
+                <p class="card-text h5">Всего писем</p>
             </div>
         </div>
     </div>
 
-    {% for status, count in by_status.items %}
+    <!-- Статистика по статусам -->
+    {% for status_key, status_data in by_status.items %}
     <div class="col-md-4">
         <div class="card mb-4">
-            <div class="card-body">
-                <h3 class="card-title">{{ count }}</h3>
-                <p class="card-text">{{ status }}</p>
+            <div class="card-body text-center">
+                <h3 class="card-title display-6">{{ status_data.count }}</h3>
+                <p class="card-text h6">
+                    <span class="badge bg-{% if status_key == 'new' %}secondary{% elif status_key == 'analyzed' %}info{% elif status_key == 'response_generated' %}warning{% else %}success{% endif %}">
+                        {{ status_data.name }}
+                    </span>
+                </p>
+                {% if status_data.percentage > 0 %}
+                <div class="mt-2">
+                    <small class="text-muted">{{ status_data.percentage }}% от общего числа</small>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
 
-<a href="{% url 'letter_list' %}" class="btn btn-secondary">Назад к списку</a>
+<!-- Статистика по классификациям -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Распределение по типам писем</h5>
+            </div>
+            <div class="card-body">
+                {% if by_classification %}
+                    <div class="row">
+                        {% for class_key, class_data in by_classification.items %}
+                        <div class="col-md-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                                <span>{{ class_data.name }}</span>
+                                <span class="badge bg-secondary">{{ class_data.count }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">Нет данных по классификациям</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Статистика по критичности -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Распределение по уровню критичности</h5>
+            </div>
+            <div class="card-body">
+                {% if by_criticality %}
+                    <div class="row">
+                        {% for crit_key, crit_data in by_criticality.items %}
+                        <div class="col-md-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                                <span>{{ crit_data.name }}</span>
+                                <span class="badge bg-{% if crit_key == 1 %}success{% elif crit_key == 2 %}warning{% elif crit_key == 3 %}danger{% else %}dark{% endif %}">
+                                    {{ crit_data.count }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">Нет данных по критичности</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
