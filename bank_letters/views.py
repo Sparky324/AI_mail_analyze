@@ -58,7 +58,7 @@ def analyze_letter(request, letter_id):
     # Анализ текста нейросетью
     llm_client = LLMClient()
 
-    # Подготавливаем текст для анализа (включая отправителя и тему)
+    # Подготавливаем текст для анализа
     text_to_analyze = f"""
     ОТПРАВИТЕЛЬ: {letter.sender}
     ТЕМА: {letter.subject}
@@ -66,29 +66,18 @@ def analyze_letter(request, letter_id):
     {letter.original_text}
     """
 
-    # Вызываем анализ нейросети (пока используем мок-данные)
+    # Вызываем анализ нейросети
     analysis_result = llm_client.analyze_letter(text_to_analyze)
 
     # Обновляем письмо данными анализа
+    letter.summary = analysis_result.get('summary', '')
     letter.classification = analysis_result.get('classification', 1)
     letter.criticality_level = analysis_result.get('criticality_level', 2)
     letter.response_style = analysis_result.get('response_style', 2)
     letter.status = 'analyzed'
-    letter.urgency_level = analysis_result.get('urgency_level', 'medium')
-    letter.main_request = analysis_result.get('main_request', '')
-    letter.contact_info = analysis_result.get('contact_info', {})
-    letter.legal_references = analysis_result.get('legal_references', [])
-    letter.requirements = analysis_result.get('requirements', [])
-    letter.risks = analysis_result.get('risks', [])
-    letter.required_departments = analysis_result.get('required_departments', [])
-    letter.analysis_confidence = analysis_result.get('confidence', 0.0)
-    letter.processed_at = timezone.now()
 
-    # Обработка SLA дедлайна
-    sla_deadline = analysis_result.get('sla_deadline')
-    if sla_deadline:
-        # Здесь может быть логика преобразования строки в datetime
-        letter.sla_deadline = timezone.now() + timezone.timedelta(days=3)  # Пример
+    # Рассчитываем дедлайн на основе критичности
+    letter.calculate_sla_deadline()
 
     letter.save()
 
@@ -114,7 +103,6 @@ def analysis_results(request, letter_id):
     context = {
         'letter': letter,
         'analysis': analysis_data,
-        'departments': letter.required_departments or []
     }
 
     return render(request, 'analysis_results.html', context)

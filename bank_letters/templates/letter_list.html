@@ -43,19 +43,18 @@
 <!-- Список писем -->
 {% if letters %}
     {% for letter in letters %}
-    <div class="card letter-card status-{{ letter.status }}">
+    <div class="card letter-card status-{{ letter.status }} mb-3">
         <div class="card-body">
             <div class="row">
                 <div class="col-md-8">
                     <h5 class="card-title">{{ letter.subject }}</h5>
                     <p class="card-text"><strong>Отправитель:</strong> {{ letter.sender }}</p>
-                    <p class="card-text"><strong>Текст:</strong> {{ letter.original_text|truncatewords:30 }}</p>
+                    {% if letter.summary %}
+                        <p class="card-text"><strong>Краткое содержание:</strong> {{ letter.summary|truncatewords:20 }}</p>
+                    {% endif %}
                     <p class="card-text">
                         <small class="text-muted">
                             Загружено: {{ letter.uploaded_at|date:"d.m.Y H:i" }}
-                            {% if letter.processed_at %}
-                                | Обработано: {{ letter.processed_at|date:"d.m.Y H:i" }}
-                            {% endif %}
                         </small>
                     </p>
                 </div>
@@ -63,7 +62,7 @@
                     <div class="d-flex flex-column h-100">
                         <div class="mb-2">
                             <span class="badge bg-secondary">#{{ letter.id }}</span>
-                            <span class="badge bg-{% if letter.status == 'new' %}secondary{% elif letter.status == 'analyzed' %}info{% elif letter.status == 'response_generated' %}warning{% elif letter.status == 'done' %}success{% else %}dark{% endif %}">
+                            <span class="badge bg-{% if letter.status == 'new' %}secondary{% elif letter.status == 'analyzed' %}info{% elif letter.status == 'response_generated' %}warning{% else %}success{% endif %}">
                                 {{ letter.get_status_display }}
                             </span>
                         </div>
@@ -76,6 +75,14 @@
                                 {{ letter.get_criticality_level_display|default:"Не определена" }}
                             </span>
                         </div>
+                        {% if letter.sla_deadline %}
+                        <div class="mb-2">
+                            <strong>Дедлайн:</strong>
+                            <small class="text-{% if letter.sla_deadline < now %}danger{% else %}success{% endif %}">
+                                {{ letter.sla_deadline|date:"d.m.Y H:i" }}
+                            </small>
+                        </div>
+                        {% endif %}
                         <div class="mt-auto">
                             <a href="{% url 'letter_detail' letter.id %}" class="btn btn-sm btn-outline-primary">Подробнее</a>
                             {% if letter.status == 'new' %}

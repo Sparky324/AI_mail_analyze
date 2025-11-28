@@ -11,8 +11,8 @@ YAGPT_MODEL_NAME = 'yandexgpt/rc'
 class LLMClient:
     def __init__(self):
         load_dotenv()
-        self.folder_id = os.environ['folder_id']
-        self.api_key = os.environ['api_key']
+        self.folder_id = os.getenv('FOLDER_ID')
+        self.api_key = os.getenv('API_KEY')
         self.api_url = BASE_LLM_URL
         self.client = OpenAI(
             base_url="https://rest-assistant.api.cloud.yandex.net/v1",

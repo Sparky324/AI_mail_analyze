@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class Letter(models.Model):
@@ -37,8 +38,7 @@ class Letter(models.Model):
         ('done', 'Завершено'),
         ('archived', 'В архиве'),
     ]
-
-    # Основные поля
+    # Основные поля (заполняются пользователем)
     sender = models.CharField(
         max_length=255,
         verbose_name="Отправитель",
@@ -52,7 +52,12 @@ class Letter(models.Model):
     original_text = models.TextField(verbose_name="Текст письма")
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата загрузки")
 
-    # Классификация и анализ
+    # Поля, заполняемые LLM
+    summary = models.TextField(
+        blank=True,
+        verbose_name="Краткое содержание",
+        help_text="Краткое содержание письма, сгенерированное нейросетью"
+    )
     classification = models.IntegerField(
         choices=CLASSIFICATION_CHOICES,
         null=True,
@@ -71,28 +76,25 @@ class Letter(models.Model):
         blank=True,
         verbose_name="Стиль ответа"
     )
+    processing_time_hours = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Время на обработку (часы)",
+        help_text="Примерное время, необходимое для обработки письма"
+    )
+    sla_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Дедлайн по SLA"
+    )
+
+    # Статус письма
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default='new',
         verbose_name="Статус"
     )
-
-    # Дополнительные аналитические поля
-    urgency_level = models.CharField(max_length=20, blank=True, verbose_name="Уровень срочности")
-    sla_deadline = models.DateTimeField(null=True, blank=True, verbose_name="Срок ответа (SLA)")
-    main_request = models.TextField(blank=True, verbose_name="Суть запроса")
-
-    # JSON поля для структурированных данных
-    contact_info = models.JSONField(default=dict, blank=True, verbose_name="Контактная информация")
-    legal_references = models.JSONField(default=list, blank=True, verbose_name="Нормативные ссылки")
-    requirements = models.JSONField(default=list, blank=True, verbose_name="Требования")
-    risks = models.JSONField(default=list, blank=True, verbose_name="Риски")
-    required_departments = models.JSONField(default=list, blank=True, verbose_name="Отделы для согласования")
-
-    # Метаданные
-    analysis_confidence = models.FloatField(default=0.0, verbose_name="Уверенность анализа")
-    processed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата обработки")
 
     class Meta:
         verbose_name = "Письмо"

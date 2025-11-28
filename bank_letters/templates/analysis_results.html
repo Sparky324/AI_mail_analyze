@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-chart-bar"></i> Результаты анализа</h2>
+    <a href="{% url 'generate_responses' letter.id %}" class="btn btn-success">
+        <i class="fas fa-reply"></i> Сгенерировать ответы
+    </a>
+</div>
+
+<!-- Основная информация -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5><i class="fas fa-info-circle"></i> Классификация</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Тип письма:</strong>
+                    <span class="badge bg-info">{{ letter.get_classification_display }}</span>
+                </p>
+                <p><strong>Уровень критичности:</strong>
+                    <span class="badge {% if letter.criticality_level == 4 %}bg-danger{% elif letter.criticality_level == 3 %}bg-warning{% elif letter.criticality_level == 2 %}bg-info{% else %}bg-secondary{% endif %}">
+                        {{ letter.get_criticality_level_display }}
+                    </span>
+                </p>
+                <p><strong>Стиль ответа:</strong> {{ letter.get_response_style_display }}</p>
+                <p><strong>Статус:</strong>
+                    <span class="badge {% if letter.status == 'new' %}bg-secondary{% elif letter.status == 'analyzed' %}bg-info{% elif letter.status == 'response_generated' %}bg-warning{% else %}bg-success{% endif %}">
+                        {{ letter.get_status_display }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5><i class="fas fa-clock"></i> Сроки обработки</h5>
+            </div>
+            <div class="card-body">
+                {% if letter.processing_time_hours %}
+                    <p><strong>Время на обработку:</strong> {{ letter.processing_time_hours }} часов</p>
+                {% endif %}
+                {% if letter.sla_deadline %}
+                    <p><strong>Дедлайн по SLA:</strong> {{ letter.sla_deadline|date:"d.m.Y H:i" }}</p>
+                    <p><small class="text-muted">
+                        Осталось: {{ letter.sla_deadline|timeuntil }}
+                    </small></p>
+                {% else %}
+                    <p><strong>Дедлайн по SLA:</strong> Не установлен</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Краткое содержание -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5><i class="fas fa-file-alt"></i> Краткое содержание</h5>
+    </div>
+    <div class="card-body">
+        <p>{{ letter.summary|default:"Краткое содержание не сгенерировано" }}</p>
+    </div>
+</div>
+
+<!-- Исходное письмо -->
+<div class="card">
+    <div class="card-header">
+        <h5><i class="fas fa-envelope"></i> Исходное письмо</h5>
+    </div>
+    <div class="card-body">
+        <p><strong>Отправитель:</strong> {{ letter.sender }}</p>
+        <p><strong>Тема:</strong> {{ letter.subject }}</p>
+        <div class="mt-3">
+            <strong>Текст письма:</strong>
+            <div class="border p-3 mt-2 bg-light">
+                {{ letter.original_text|linebreaks }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'letter_list' %}" class="btn btn-secondary">← Назад к списку</a>
+    {% if letter.status == 'analyzed' %}
+        <a href="{% url 'generate_responses' letter.id %}" class="btn btn-primary">Сгенерировать ответы</a>
+    {% endif %}
+</div>
+{% endblock %}
