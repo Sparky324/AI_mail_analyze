@@ -72,11 +72,18 @@
     </div>
 </div>
 
-<!-- Остальной код без изменений -->
 {% if letters %}
     {% for letter in letters %}
-    <div class="card letter-card status-{{ letter.status }} mb-3">
+    <div class="card letter-card status-{{ letter.status }} mb-3
+        {% if letter.sla_deadline and letter.sla_deadline <= time_threshold %}border-warning bg-light-warning{% endif %}">
         <div class="card-body">
+            {% if letter.sla_deadline and letter.sla_deadline <= time_threshold %}
+            <div class="alert alert-warning py-2 mb-3">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Срочно!</strong> Дедлайн истекает {{ letter.sla_deadline|date:"d.m.Y H:i" }}
+            </div>
+            {% endif %}
+
             <div class="row">
                 <div class="col-md-8">
                     <h5 class="card-title">{{ letter.subject }}</h5>
@@ -97,6 +104,9 @@
                             <span class="badge bg-{% if letter.status == 'new' %}secondary{% elif letter.status == 'analyzed' %}info{% elif letter.status == 'response_generated' %}warning{% else %}success{% endif %}">
                                 {{ letter.get_status_display }}
                             </span>
+                            {% if letter.sla_deadline and letter.sla_deadline <= time_threshold %}
+                            <span class="badge bg-danger">Срочно</span>
+                            {% endif %}
                         </div>
                         <div class="mb-2">
                             <strong>Тип:</strong> {{ letter.get_classification_display|default:"Не определен" }}
@@ -110,7 +120,7 @@
                         {% if letter.sla_deadline %}
                         <div class="mb-2">
                             <strong>Дедлайн:</strong>
-                            <small class="text-{% if letter.sla_deadline < now %}danger{% else %}success{% endif %}">
+                            <small class="text-{% if letter.sla_deadline < now %}danger{% elif letter.sla_deadline <= time_threshold %}warning{% else %}success{% endif %}">
                                 {{ letter.sla_deadline|date:"d.m.Y H:i" }}
                             </small>
                         </div>

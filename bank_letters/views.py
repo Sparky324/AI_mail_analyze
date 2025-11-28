@@ -2,6 +2,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
+from datetime import timedelta
 from .forms import LetterUploadForm
 from .models import Letter, AnalysisResult, GeneratedResponse
 from .services.llm_client import LLMClient
@@ -9,7 +10,11 @@ from .services.llm_client import LLMClient
 
 def letter_list(request):
     """Главная страница - список всех писем"""
-    letters = Letter.objects.all().order_by('-uploaded_at')
+    # Базовый queryset
+    letters = Letter.objects.all()
+
+    # Определяем временной порог для "истекающего срока" (например, 24 часа)
+    time_threshold = timezone.now() + timedelta(hours=24)
 
     # Фильтрация по статусу
     status_filter = request.GET.get('status')
@@ -26,6 +31,24 @@ def letter_list(request):
             # Если не удалось преобразовать в число, игнорируем фильтр
             pass
 
+    # Аннотируем письма флагом "истекающий срок"
+    from django.db.models import Case, When, Value, BooleanField
+    letters = letters.annotate(
+        is_urgent=Case(
+            When(
+                sla_deadline__isnull=False,
+                sla_deadline__lte=time_threshold,
+                then=Value(True)
+            ),
+            default=Value(False),
+            output_field=BooleanField()
+        )
+    )
+
+    # Сортируем: сначала истекающие по сроку (по возрастанию дедлайна),
+    # затем остальные по дате загрузки (по убыванию)
+    letters = letters.order_by('-is_urgent', 'sla_deadline', '-uploaded_at')
+
     # Получаем текстовые представления для отображения
     status_choices = dict(Letter.STATUS_CHOICES)
     classification_choices = dict(Letter.CLASSIFICATION_CHOICES)
@@ -35,6 +58,7 @@ def letter_list(request):
         'status_choices': status_choices.items(),
         'classification_choices': classification_choices.items(),
         'now': timezone.now(),  # для сравнения с дедлайнами
+        'time_threshold': time_threshold,  # для отображения в шаблоне
     }
 
     return render(request, 'letter_list.html', context)
