@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+
+  pg-master:
+    image:  bitnami/postgresql:latest
+    container_name: pg-master
+    environment:
+      - POSTGRESQL_USERNAME=pg-user
+      - POSTGRESQL_PASSWORD=pg-password
+      - POSTGRESQL_DATABASE=pg_db
+      - POSTGRESQL_SYNCHRONOUS_COMMIT_MODE=on
+    ports:
+      - "5432:5432"
+    volumes:
+      - master_data:/bitnami/postgresql
+
+volumes:
+  master_data:
