@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Все письма</h1>
+    <a href="{% url 'upload_letter' %}" class="btn btn-primary">+ Добавить письмо</a>
+</div>
+
+<!-- Фильтры -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Фильтры</h5>
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Статус:</label>
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="">Все статусы</option>
+                    {% for status_value, status_name in status_choices %}
+                        <option value="{{ status_value }}" {% if request.GET.status == status_value %}selected{% endif %}>
+                            {{ status_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Классификация:</label>
+                <select name="classification" class="form-select" onchange="this.form.submit()">
+                    <option value="">Все типы</option>
+                    {% for class_value, class_name in classification_choices %}
+                        <option value="{{ class_value }}" {% if request.GET.classification == class_value %}selected{% endif %}>
+                            {{ class_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <a href="{% url 'letter_list' %}" class="btn btn-outline-secondary mt-4">Сбросить</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Список писем -->
+{% if letters %}
+    {% for letter in letters %}
+    <div class="card letter-card status-{{ letter.status }}">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <h5 class="card-title">{{ letter.subject }}</h5>
+                    <p class="card-text"><strong>Отправитель:</strong> {{ letter.sender }}</p>
+                    <p class="card-text"><strong>Текст:</strong> {{ letter.original_text|truncatewords:30 }}</p>
+                    <p class="card-text">
+                        <small class="text-muted">
+                            Загружено: {{ letter.uploaded_at|date:"d.m.Y H:i" }}
+                            {% if letter.processed_at %}
+                                | Обработано: {{ letter.processed_at|date:"d.m.Y H:i" }}
+                            {% endif %}
+                        </small>
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex flex-column h-100">
+                        <div class="mb-2">
+                            <span class="badge bg-secondary">#{{ letter.id }}</span>
+                            <span class="badge bg-{% if letter.status == 'new' %}secondary{% elif letter.status == 'analyzed' %}info{% elif letter.status == 'response_generated' %}warning{% elif letter.status == 'done' %}success{% else %}dark{% endif %}">
+                                {{ letter.get_status_display }}
+                            </span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Тип:</strong> {{ letter.get_classification_display|default:"Не определен" }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Критичность:</strong>
+                            <span class="badge bg-{% if letter.criticality_level == 1 %}success{% elif letter.criticality_level == 2 %}warning{% elif letter.criticality_level == 3 %}danger{% else %}dark{% endif %}">
+                                {{ letter.get_criticality_level_display|default:"Не определена" }}
+                            </span>
+                        </div>
+                        <div class="mt-auto">
+                            <a href="{% url 'letter_detail' letter.id %}" class="btn btn-sm btn-outline-primary">Подробнее</a>
+                            {% if letter.status == 'new' %}
+                                <a href="{% url 'analyze_letter' letter.id %}" class="btn btn-sm btn-warning">Анализировать</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="alert alert-info">
+        Писем пока нет. <a href="{% url 'upload_letter' %}">Добавьте первое письмо</a>.
+    </div>
+{% endif %}
+{% endblock %}

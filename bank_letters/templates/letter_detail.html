@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Письмо #{{ letter.id }}</h1>
+    <a href="{% url 'letter_list' %}" class="btn btn-secondary">← Назад</a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Основная информация</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Отправитель:</strong> {{ letter.sender }}</p>
+                <p><strong>Тема:</strong> {{ letter.subject }}</p>
+                <p><strong>Статус:</strong>
+                    <span class="badge bg-{% if letter.status == 'new' %}secondary{% elif letter.status == 'analyzed' %}info{% elif letter.status == 'response_generated' %}warning{% elif letter.status == 'done' %}success{% else %}dark{% endif %}">
+                        {{ letter.get_status_display }}
+                    </span>
+                </p>
+                <p><strong>Тип:</strong> {{ letter.get_classification_display|default:"Не определен" }}</p>
+                <p><strong>Критичность:</strong> {{ letter.get_criticality_level_display|default:"Не определена" }}</p>
+                <p><strong>Стиль ответа:</strong> {{ letter.get_response_style_display|default:"Не определен" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Действия</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if letter.status == 'new' %}
+                        <a href="{% url 'analyze_letter' letter.id %}" class="btn btn-warning">Анализировать</a>
+                    {% elif letter.status == 'analyzed' %}
+                        <a href="{% url 'generate_responses' letter.id %}" class="btn btn-success">Генерировать ответы</a>
+                    {% elif letter.status == 'response_generated' %}
+                        <a href="{% url 'generate_responses' letter.id %}" class="btn btn-info">✏Выбрать ответ</a>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'update_letter_status' letter.id %}">
+                        {% csrf_token %}
+                        <button type="submit" name="status" value="done" class="btn btn-success w-100">Завершить</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>Текст письма</h5>
+    </div>
+    <div class="card-body">
+        <pre style="white-space: pre-wrap; font-family: inherit;">{{ letter.original_text }}</pre>
+    </div>
+</div>
+
+{% if analysis %}
+<div class="card">
+    <div class="card-header">
+        <h5>Результаты анализа</h5>
+    </div>
+    <div class="card-body">
+        <p><strong>Суть запроса:</strong> {{ letter.main_request }}</p>
+        <p><strong>Уровень срочности:</strong> {{ letter.urgency_level }}</p>
+        <p><strong>Уверенность анализа:</strong> {{ letter.analysis_confidence|floatformat:2 }}</p>
+
+        {% if letter.legal_references %}
+        <p><strong>Нормативные ссылки:</strong></p>
+        <ul>
+            {% for ref in letter.legal_references %}
+                <li>{{ ref }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
