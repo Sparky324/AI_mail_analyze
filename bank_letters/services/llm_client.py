@@ -13,8 +13,8 @@ YAGPT_MODEL_NAME = 'yandexgpt/rc'
 class LLMClient:
     def __init__(self):
         load_dotenv()
-        self.folder_id = os.getenv('FOLDER_ID')
-        self.api_key = os.getenv('API_KEY')
+        self.folder_id = os.getenv('folder_id')
+        self.api_key = os.getenv('api_key')
         self.api_url = BASE_LLM_URL
         self.processor = ResponseProcessor()
 
