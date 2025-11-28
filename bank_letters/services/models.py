@@ -31,8 +31,8 @@ class RequestAnalysis(BaseModel):
     response_style: ResponseStyle = Field(
         description="Предпочтительный стиль ответа"
     )
-    processing_time_hours: float = Field(
-        ge=0.1,
+    processing_time_hours: int = Field(
+        ge=1,
         le=1720,
         description="Время на обработку в часах согласно регламенту"
     )
