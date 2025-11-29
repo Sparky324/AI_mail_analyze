@@ -40,3 +40,9 @@ class EmailGeneration(BaseModel):
         max_length=10000,
         description="Сгенерированное ответное письмо"
     )
+
+class TextGeneration(BaseModel):
+    response: str = Field(
+        max_length=10000,
+        description="Сгенерированный ответ, который попросил пользователь"
+    )
