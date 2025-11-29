@@ -2,10 +2,10 @@
 class ResponseProcessor:
     def process_analysis_response(self, parsed_response, categories):
         """Обрабатывает ответ анализа с учетом категорий"""
-        print(f"=== ОБРАБОТКА ОТВЕТА ОТ LLM ===")
-        print(f"Полученный ответ: {parsed_response}")
-        print(f"Тип ответа: {type(parsed_response)}")
-        print(f"Доступные категории: {categories}")
+        # print(f"=== ОБРАБОТКА ОТВЕТА ОТ LLM ===")
+        # print(f"Полученный ответ: {parsed_response}")
+        # print(f"Тип ответа: {type(parsed_response)}")
+        # print(f"Доступные категории: {categories}")
 
         if parsed_response is None:
             print("ОШИБКА: parsed_response is None, используем ответ по умолчанию")
@@ -29,8 +29,8 @@ class ResponseProcessor:
                 'summary': summary,
             }
 
-            print(f"Финальный результат: {result}")
-            print("===============================")
+            # print(f"Финальный результат: {result}")
+            # print("===============================")
 
             return result
 
@@ -49,35 +49,35 @@ class ResponseProcessor:
             # Пробуем topic_category (из вашего примера)
             if hasattr(parsed_response, 'topic_category'):
                 classification = parsed_response.topic_category
-                print(f"Найдено поле topic_category: {classification}")
+                #print(f"Найдено поле topic_category: {classification}")
 
             # Пробуем classification
             elif hasattr(parsed_response, 'classification'):
                 classification = parsed_response.classification
-                print(f"Найдено поле classification: {classification}")
+                #print(f"Найдено поле classification: {classification}")
 
             # Пробуем category
             elif hasattr(parsed_response, 'category'):
                 classification = parsed_response.category
-                print(f"Найдено поле category: {classification}")
+                #print(f"Найдено поле category: {classification}")
 
-            print(f"Извлеченная классификация: {classification}")
-            print(f"Тип классификации: {type(classification)}")
+            #print(f"Извлеченная классификация: {classification}")
+            #print(f"Тип классификации: {type(classification)}")
 
             # Если classification - число, используем как есть
             if isinstance(classification, int):
-                print(f"Классификация как число: {classification}")
+                #print(f"Классификация как число: {classification}")
                 valid_classifications = [cat['id'] for cat in categories]
                 if classification in valid_classifications:
                     return classification
 
             # Если classification - строка, пытаемся найти соответствие
             if isinstance(classification, str):
-                print(f"Классификация как строка: '{classification}'")
+                # print(f"Классификация как строка: '{classification}'")
                 # Ищем по названию категории
                 for cat in categories:
                     if cat['name'].lower() in classification.lower() or classification.lower() in cat['name'].lower():
-                        print(f"Найдено соответствие: '{classification}' -> {cat['id']} ({cat['name']})")
+                        # print(f"Найдено соответствие: '{classification}' -> {cat['id']} ({cat['name']})")
                         return cat['id']
 
                 # Пробуем извлечь число из строки
@@ -87,12 +87,12 @@ class ResponseProcessor:
                     classification_num = int(numbers[0])
                     valid_classifications = [cat['id'] for cat in categories]
                     if classification_num in valid_classifications:
-                        print(f"Извлечено число из строки: {classification_num}")
+                        #print(f"Извлечено число из строки: {classification_num}")
                         return classification_num
 
             # Если не нашли, используем первую категорию
             default_classification = categories[0]['id'] if categories else 1
-            print(f"Не удалось определить классификацию, используем по умолчанию: {default_classification}")
+            #print(f"Не удалось определить классификацию, используем по умолчанию: {default_classification}")
             return default_classification
 
         except Exception as e:
@@ -106,9 +106,9 @@ class ResponseProcessor:
 
             if hasattr(parsed_response, 'criticality_level'):
                 criticality = parsed_response.criticality_level
-                print(f"Найдено поле criticality_level: {criticality}")
+                #print(f"Найдено поле criticality_level: {criticality}")
 
-            print(f"Извлеченная критичность: {criticality}")
+            #print(f"Извлеченная критичность: {criticality}")
 
             if isinstance(criticality, int):
                 return max(1, min(4, criticality))  # Ограничиваем диапазон 1-4
@@ -127,7 +127,7 @@ class ResponseProcessor:
             return 2  # По умолчанию средний
 
         except Exception as e:
-            print(f"Ошибка при извлечении criticality_level: {e}")
+            #print(f"Ошибка при извлечении criticality_level: {e}")
             return 2
 
     def _extract_response_style(self, parsed_response):
@@ -137,9 +137,9 @@ class ResponseProcessor:
 
             if hasattr(parsed_response, 'response_style'):
                 style = parsed_response.response_style
-                print(f"Найдено поле response_style: {style}")
+                #print(f"Найдено поле response_style: {style}")
 
-            print(f"Извлеченный стиль ответа: {style}")
+            #print(f"Извлеченный стиль ответа: {style}")
 
             if isinstance(style, int):
                 return max(1, min(4, style))  # Ограничиваем диапазон 1-4
@@ -167,7 +167,7 @@ class ResponseProcessor:
         try:
             if hasattr(parsed_response, 'summary'):
                 summary = parsed_response.summary
-                print(f"Найдено поле summary: {summary}")
+                #print(f"Найдено поле summary: {summary}")
                 return str(summary) if summary else 'Не удалось сгенерировать краткое содержание.'
             return 'Не удалось сгенерировать краткое содержание.'
         except Exception as e:
@@ -177,7 +177,7 @@ class ResponseProcessor:
     def _get_default_response(self, categories):
         """Возвращает ответ по умолчанию"""
         default_classification = categories[0]['id'] if categories else 1
-        print(f"Используется категория по умолчанию: {default_classification}")
+        #print(f"Используется категория по умолчанию: {default_classification}")
 
         from django.utils import timezone
         from datetime import timedelta
