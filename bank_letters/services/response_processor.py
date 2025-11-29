@@ -12,7 +12,7 @@ class ResponseProcessor:
     """Обработчик ответов от LLM для преобразования в формат Django модели"""
 
     @staticmethod
-    def process_analysis_response(llm_response):
+    def process_analysis_response(llm_response, categories):
         """
         Преобразует ответ от LLM анализа в словарь для Django модели Letter
         """
@@ -21,7 +21,7 @@ class ResponseProcessor:
 
         # Если это Pydantic модель
         if isinstance(llm_response, RequestAnalysis):
-            return ResponseProcessor._convert_from_pydantic(llm_response)
+            return ResponseProcessor._convert_from_pydantic(llm_response, categories)
 
         # Если это уже словарь
         if isinstance(llm_response, dict):
@@ -30,11 +30,12 @@ class ResponseProcessor:
         return ResponseProcessor._get_fallback_response()
 
     @staticmethod
-    def _convert_from_pydantic(pydantic_obj: RequestAnalysis):
+    def _convert_from_pydantic(pydantic_obj: RequestAnalysis, categories):
         """Преобразует Pydantic модель в словарь для Django"""
         # Конвертируем enum значения в числовые коды для Django модели
         classification = llm_category_to_classification_choices_model(
-            pydantic_obj.topic_category
+            pydantic_obj.topic_category,
+            categories
         )
         response_style = llm_response_style_to_model(
             pydantic_obj.response_style
@@ -42,6 +43,8 @@ class ResponseProcessor:
         criticality_level = llm_criticality_level_to_model(
             pydantic_obj.criticality_level
         )
+
+        print(classification, pydantic_obj)
 
         # Рассчитываем дедлайн на основе времени обработки
         sla_deadline = timezone.now() + timedelta(

@@ -1,15 +1,6 @@
 from pydantic import BaseModel, Field
 from enum import Enum
 
-class TopicCategory(str, Enum):
-    INFORMATION_REQUEST = 'Запрос информации/документов'
-    COMPLAINT = 'Официальная жалоба или претензия'
-    GOVERNMENT_REQUEST = 'Регуляторный запрос'
-    PARTNER_DEAL =  'Партнёрское предложение'
-    APPROVAL_REQUEST =  'Запрос на согласование'
-    NOTICE =  'Уведомление или информирование'
-    OTHER = "Другое"
-
 # Определение стилей ответа
 class ResponseStyle(str, Enum):
     OFFICIAL = 'Строгий официальный стиль'
@@ -25,15 +16,15 @@ class CriticalityLevel(str, Enum):
     CRITICAL = "Критичный"
 
 class RequestAnalysis(BaseModel):
-    topic_category: TopicCategory = Field(
-        description="Классификация темы по категориям"
+    topic_category: str = Field(
+        description="Классификация темы письма по категориям, одна из перечисленных"
     )
     response_style: ResponseStyle = Field(
         description="Предпочтительный стиль ответа"
     )
     processing_time_hours: int = Field(
         ge=1,
-        le=1720,
+        le=720,
         description="Время на обработку в часах согласно регламенту"
     )
     criticality_level: CriticalityLevel = Field(

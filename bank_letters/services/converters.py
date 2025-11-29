@@ -1,16 +1,10 @@
 from bank_letters.services.models import *
 
-def llm_category_to_classification_choices_model(category):
-    match category:
-        case TopicCategory.INFORMATION_REQUEST: return 1
-        case TopicCategory.COMPLAINT: return 2
-        case TopicCategory.GOVERNMENT_REQUEST: return 3
-        case TopicCategory.PARTNER_DEAL: return 4
-        case TopicCategory.APPROVAL_REQUEST: return 5
-        case TopicCategory.NOTICE:
-            return 6
-        case _:
-            return 7
+def llm_category_to_classification_choices_model(cat, categories):
+    for category in categories:
+        if cat == category.get('name'):
+            return category.get('number')
+    return 1
 
 def llm_response_style_to_model(style):
     match style:
