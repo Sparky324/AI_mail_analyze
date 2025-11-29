@@ -22,7 +22,7 @@ class LLMClient:
         self.processor = ResponseProcessor()
         self.data_folder = "data_simple"
         self.vector_store_id = None
-        self.vector_store_name = "rag_store_abandoned"
+        self.vector_store_name = "rag_store_abandoned_1"
 
         self.client = OpenAI(
             base_url="https://rest-assistant.api.cloud.yandex.net/v1",
