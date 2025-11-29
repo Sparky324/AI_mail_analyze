@@ -317,7 +317,6 @@ def generate_responses(request, letter_id):
         letter.status = 'analyzed'  # Возвращаем статус к анализированному
         letter.save()
 
-        messages.success(request, "Старый ответ удален. Вы можете сгенерировать новый ответ.", extra_tags='response')
         return redirect('generate_responses', letter_id=letter.id)
 
     # Обработка выбора существующего ответа
@@ -625,7 +624,6 @@ def ask_question(request, letter_id):
                     answer=answer
                 )
 
-                messages.success(request, "Ответ от LLM получен!", extra_tags='question')
                 return redirect('ask_question', letter_id=letter.id)
 
             except Exception as e:
