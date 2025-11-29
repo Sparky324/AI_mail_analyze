@@ -12,7 +12,6 @@ BASE_LLM_URL = 'https://rest-assistant.api.cloud.yandex.net/v1'
 QWEN3_235B_MODEL_NAME = 'qwen3-235b-a22b-fp8/latest'
 YAGPT_MODEL_NAME = 'yandexgpt/rc'
 
-
 class LLMClient:
     def __init__(self):
         load_dotenv()
@@ -22,7 +21,7 @@ class LLMClient:
         self.processor = ResponseProcessor()
         self.data_folder = "data_simple"
         self.vector_store_id = None
-        self.vector_store_name = "rag_store_abandoned_1"
+        self.vector_store_name = "rag_store_abandoned_2"
 
         # Настройки таймаутов
         self.timeout_seconds = 30  # Увеличиваем таймаут
@@ -274,14 +273,12 @@ class LLMClient:
                 self.vector_store_id = vector_store.id
                 print(f"Создано новое векторное хранилище: {vector_store_name} (ID: {self.vector_store_id})")
 
-            # Загружаем txt файлы из папки data
-            self._load_txt_files_to_vector_store()
-
         except Exception as e:
             print(f"Ошибка при инициализации RAG: {e}")
             self.vector_store_id = None
 
-    def _load_txt_files_to_vector_store(self):
+    # Загружаем txt файлы из папки data
+    def load_txt_files_to_vector_store(self):
         """Загружает все txt файлы из папки data в векторное хранилище"""
         if not self.vector_store_id:
             print("Vector store не инициализирован, пропускаем загрузку файлов")

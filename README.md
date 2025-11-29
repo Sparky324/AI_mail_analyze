@@ -104,6 +104,7 @@ cp .env.example .env
 
 5. **Миграции базы данных**
 ```bash
+python manage.py makemigrations bank_letters
 python manage.py migrate
 ```
 
