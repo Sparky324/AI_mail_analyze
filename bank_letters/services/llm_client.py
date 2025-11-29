@@ -148,13 +148,15 @@ class LLMClient:
         rag_query_2 = f"Что нужно сделать: {user_commentary}..."
         rag_context_2 = self._rag_search(rag_query_2)
 
-        finished_context = ""
-        if rag_context or rag_context_2:
-            finished_context = f"\nКонтекст для составления ответа:\n{rag_context}\n{rag_context_2}"
-            print(f'Контекст от RAG: {finished_context}')
-        else:
-            print(f'Контекста от RAG не было')
+        # ИСПРАВЛЕНИЕ: Всегда гарантируем, что есть основной контент
+        input_content = text_email  # Основной текст письма как fallback
 
+        if rag_context or rag_context_2:
+            input_content = f"Контекст для составления ответа:\n{rag_context}\n{rag_context_2}\n\nОсновной текст письма:\n{text_email}"
+            print(f'Контекст от RAG: {rag_context}\n{rag_context_2}')
+        else:
+            print(f'Контекста от RAG не было, используем только текст письма')
+            input_content = f"Текст письма для анализа:\n{text_email}"
 
         model = self.make_model(model_name=YAGPT_MODEL_NAME)
         try:
@@ -162,7 +164,7 @@ class LLMClient:
                 model=model,
                 text_format=TextGeneration,
                 instructions=instructions,
-                input=finished_context
+                input=input_content  # Теперь всегда будет непустой контент
             )
 
             return res.output_parsed.response
@@ -172,10 +174,39 @@ class LLMClient:
 
             # Пробуем альтернативный способ - прямой вызов без парсинга
             try:
-                return self._generate_response_fallback(instructions + finished_context, model)
+                return self._generate_text_fallback(instructions, input_content, model)
             except Exception as fallback_error:
                 print(f"Fallback также не сработал: {fallback_error}")
-                return f"Не удалось получить ответ."
+                return f"Не удалось получить ответ. Пожалуйста, попробуйте еще раз."
+
+    def _generate_text_fallback(self, instructions, input_content, model):
+        """Альтернативный способ генерации текста с упрощенным запросом"""
+        try:
+            print("Используем упрощенный fallback метод для генерации текста")
+
+            # Упрощаем промпт для fallback
+            simplified_prompt = f"""
+            {instructions}
+
+            Контекст:
+            {input_content}
+            """
+
+            # Используем обычный completion вместо parse
+            response = self.client.responses.create(
+                model=model,
+                instructions="Ты - AI ассистент для анализа банковских писем. Отвечай на вопросы профессионально и точно.",
+                input=simplified_prompt,
+                timeout=20
+            )
+
+            # Очищаем ответ от управляющих символов
+            clean_text = self._clean_response_text(response.output_text)
+            return clean_text
+
+        except Exception as e:
+            print(f"Ошибка в fallback методе для текста: {e}")
+            return "Извините, не удалось обработать ваш запрос. Пожалуйста, попробуйте переформулировать вопрос."
 
     def _generate_response_fallback(self, prompt, model):
         """Альтернативный способ генерации ответа с упрощенным запросом"""

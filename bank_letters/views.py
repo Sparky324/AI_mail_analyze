@@ -594,13 +594,6 @@ def ask_question(request, letter_id):
             Тема: {letter.subject}
             Текст письма: {letter.original_text}
 
-            РЕЗУЛЬТАТЫ АНАЛИЗА:
-            Тип: {letter.get_classification_display()}
-            Критичность: {letter.get_criticality_level_display()}
-            Краткое содержание: {letter.summary}
-
-            ВОПРОС ПОЛЬЗОВАТЕЛЯ: {question_text}
-
             Ответь на вопрос пользователя, основываясь на информации о письме.
             Будь точным и полезным.
             """
