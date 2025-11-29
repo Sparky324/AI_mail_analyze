@@ -159,9 +159,22 @@ def letter_list(request):
         )
     )
 
-    # Сортируем: сначала истекающие по сроку (по возрастанию дедлайна),
-    # затем остальные по дате загрузки (по убыванию)
-    letters = letters.order_by('-is_urgent', 'sla_deadline', '-uploaded_at')
+    from django.db.models import Case, When, Value, IntegerField
+    letters = letters.annotate(
+        status_order=Case(
+            # Незавершенные письма (в работе) - приоритет 1
+            When(status__in=['new', 'analyzed', 'response_generated'], then=Value(1)),
+            # Завершенные письма - приоритет 2 (будут внизу)
+            When(status__in=['done', 'archived'], then=Value(2)),
+            default=Value(3),
+            output_field=IntegerField()
+        )
+    ).order_by(
+        'status_order',
+        '-is_urgent',
+        'sla_deadline',
+        '-uploaded_at'
+    )
 
     # Получаем текстовые представления для отображения
     status_choices = dict(Letter.STATUS_CHOICES)
