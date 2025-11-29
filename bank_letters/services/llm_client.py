@@ -20,7 +20,7 @@ class LLMClient:
         self.api_key = os.getenv('api_key')
         self.api_url = BASE_LLM_URL
         self.processor = ResponseProcessor()
-        self.data_folder = "data"
+        self.data_folder = "data_doc"
         self.vector_store_id = None
         self.vector_store_name = "rag_store_abandoned"
 
