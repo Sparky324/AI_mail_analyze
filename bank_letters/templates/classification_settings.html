@@ -1,3 +1,4 @@
+<!-- classification_settings.html -->
 {% extends 'base.html' %}
 {% load static %}
 
@@ -36,7 +37,6 @@
                         </ul>
                     </div>
 
-                    <!-- Текущие категории -->
                     {% if custom_categories %}
                     <div class="mb-4">
                         <h5>Текущие категории:</h5>
@@ -64,7 +64,7 @@
                     <div class="mb-4">
                         <h5>Базовые категории:</h5>
                         <ul class="list-group">
-                            {% for number, name in letter.get_base_classification_choices %}
+                            {% for number, name in base_classification_choices %}
                             <li class="list-group-item"><strong>{{ number }}.</strong> {{ name }}</li>
                             {% endfor %}
                         </ul>

@@ -1,3 +1,4 @@
+<!-- confirm_classification_change.html -->
 {% extends 'base.html' %}
 
 {% block content %}
@@ -22,8 +23,13 @@
                     <div class="mb-4">
                         <h5>Новые категории:</h5>
                         <ul class="list-group">
-                            {% for number, name in new_categories %}
-                            <li class="list-group-item"><strong>{{ number }}.</strong> {{ name }}</li>
+                            {% for category in new_categories %}
+                            <li class="list-group-item">
+                                <strong>{{ category.number }}.</strong> {{ category.name }}
+                                {% if category.description %}
+                                <br><small class="text-muted">{{ category.description }}</small>
+                                {% endif %}
+                            </li>
                             {% endfor %}
                         </ul>
                     </div>

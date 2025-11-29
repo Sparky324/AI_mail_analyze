@@ -36,14 +36,9 @@
         <div class="col-md-3">
             <div class="card text-center border-success">
                 <div class="card-body">
-                    <h2 class="display-4 text-success">
-                        {% if total_letters > 0 %}
-                            {{ total_letters|add:expired_letters|add:urgent_letters|divisibleby:total_letters|default:100 }}
-                        {% else %}
-                            0
-                        {% endif %}
-                    </h2>
+                    <h2 class="display-4 text-success">{{ in_progress_letters }}</h2>
                     <p class="card-text">В обработке</p>
+                    <small class="text-muted">{{ in_progress_percentage }}% от общего числа</small>
                 </div>
             </div>
         </div>
@@ -70,17 +65,14 @@
                                 <tbody>
                                     {% for status_data in by_status.values %}
                                     <tr>
-                                        <td>{{ status_data.name }}</td>
+                                        <td>
+                                            <span class="badge bg-{% if status_data.name == 'Новое' %}secondary{% elif status_data.name == 'Проанализировано' %}info{% elif status_data.name == 'Ответ сгенерирован' %}warning{% elif status_data.name == 'Завершено' %}success{% else %}dark{% endif %}">
+                                                {{ status_data.name }}
+                                            </span>
+                                        </td>
                                         <td>{{ status_data.count }}</td>
                                         <td>
-                                            <div class="progress" style="height: 20px;">
-                                                <div class="progress-bar" role="progressbar"
-                                                     style="width: {{ status_data.percentage }}%;"
-                                                     aria-valuenow="{{ status_data.percentage }}"
-                                                     aria-valuemin="0" aria-valuemax="100">
-                                                    {{ status_data.percentage }}%
-                                                </div>
-                                            </div>
+                                            <strong>{{ status_data.percentage }}%</strong>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -117,14 +109,7 @@
                                         <td>{{ class_data.name }}</td>
                                         <td>{{ class_data.count }}</td>
                                         <td>
-                                            <div class="progress" style="height: 20px;">
-                                                <div class="progress-bar bg-info" role="progressbar"
-                                                     style="width: {{ class_data.percentage }}%;"
-                                                     aria-valuenow="{{ class_data.percentage }}"
-                                                     aria-valuemin="0" aria-valuemax="100">
-                                                    {{ class_data.percentage }}%
-                                                </div>
-                                            </div>
+                                            <strong>{{ class_data.percentage }}%</strong>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -167,19 +152,7 @@
                                         </td>
                                         <td>{{ crit_data.count }}</td>
                                         <td>
-                                            <div class="progress" style="height: 20px;">
-                                                <div class="progress-bar
-                                                    {% if crit_data.name == 'Низкий' %}bg-success
-                                                    {% elif crit_data.name == 'Средний' %}bg-warning
-                                                    {% elif crit_data.name == 'Высокий' %}bg-danger
-                                                    {% else %}bg-dark{% endif %}"
-                                                    role="progressbar"
-                                                    style="width: {{ crit_data.percentage }}%;"
-                                                    aria-valuenow="{{ crit_data.percentage }}"
-                                                    aria-valuemin="0" aria-valuemax="100">
-                                                    {{ crit_data.percentage }}%
-                                                </div>
-                                            </div>
+                                            <strong>{{ crit_data.percentage }}%</strong>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -203,13 +176,16 @@
                     <div class="mb-3">
                         <strong>Используемые категории классификации:</strong>
                         <ul class="mt-2">
-                            {% for number, name in letter.get_classification_choices %}
+                            {% for number, name in classification_choices %}
                                 <li><strong>{{ number }}.</strong> {{ name }}</li>
                             {% endfor %}
                         </ul>
                     </div>
                     <div class="mb-3">
                         <strong>Всего категорий:</strong> {{ letter.get_classification_choices|length }}
+                    </div>
+                    <div class="mb-3">
+                        <strong>Всего писем в системе:</strong> {{ total_letters }}
                     </div>
                     <div>
                         <strong>Последнее обновление:</strong> {% now "d.m.Y H:i" %}

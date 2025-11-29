@@ -1,3 +1,4 @@
+# llm_client.py - исправленная версия
 import os
 import re
 from dotenv import load_dotenv
@@ -33,7 +34,9 @@ class LLMClient:
         model = self.make_model(model_name=YAGPT_MODEL_NAME)
 
         prompt = make_analyze_email_prompt(categories)
+        print("Промпт для анализа:")
         print(prompt)
+        print("Категории:", categories)
 
         try:
             res = self.client.responses.parse(
@@ -49,9 +52,6 @@ class LLMClient:
         except Exception as e:
             print(f"Ошибка при анализе запроса: {e}")
             return self.processor.process_analysis_response(None, categories)
-
-    import json
-    import re
 
     def generate_response(self, old_text_email, user_commentary, style):
         """Генерация ответа в указанном стиле"""

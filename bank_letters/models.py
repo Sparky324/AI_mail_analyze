@@ -137,21 +137,26 @@ class Letter(models.Model):
 
     def get_classification_display(self):
         """Возвращает отображаемое название классификации"""
-        from django.db import connection
+        if self.classification is None:
+            return "Не определен"
+
         try:
-            # Проверяем, есть ли пользовательские категории
-            if ClassificationCategory.objects.filter(is_active=True).exists():
-                custom_categories = ClassificationCategory.objects.filter(is_active=True)
+            # Сначала проверяем пользовательские категории
+            custom_categories = ClassificationCategory.objects.filter(is_active=True)
+            if custom_categories.exists():
                 for category in custom_categories:
                     if category.number == self.classification:
                         return category.name
-            # Если нет пользовательских или не нашли совпадение, используем базовые
+
+            # Если пользовательских нет или не нашли совпадение, используем базовые
             for num, name in self.BASE_CLASSIFICATION_CHOICES:
                 if num == self.classification:
                     return name
+
             return "Не определен"
-        except:
-            # На случай ошибки БД
+        except Exception as e:
+            # На случай ошибки БД, используем базовые категории
+            print(f"Ошибка в get_classification_display: {e}")
             for num, name in self.BASE_CLASSIFICATION_CHOICES:
                 if num == self.classification:
                     return name
@@ -164,23 +169,55 @@ class Letter(models.Model):
 
     @classmethod
     def get_classification_choices(cls):
-        """Возвращает актуальные choices для классификации"""
+        """Возвращает актуальные choices для классификации (только number и name)"""
         try:
             # Проверяем, есть ли активные пользовательские категории
-            if hasattr(cls, '_classification_choices_cache'):
-                return cls._classification_choices_cache
-
             custom_categories = ClassificationCategory.objects.filter(is_active=True)
             if custom_categories.exists():
+                # ВОЗВРАЩАЕМ ТОЛЬКО (number, name) - без description!
                 choices = [(cat.number, cat.name) for cat in custom_categories.order_by('number')]
-                cls._classification_choices_cache = choices
+                print(f"Используются пользовательские категории: {choices}")
                 return choices
-            # Возвращаем базовые категории
-            cls._classification_choices_cache = cls.BASE_CLASSIFICATION_CHOICES
+            # Возвращаем базовые категории (они уже в правильном формате)
+            print(f"Используются базовые категории: {cls.BASE_CLASSIFICATION_CHOICES}")
             return cls.BASE_CLASSIFICATION_CHOICES
-        except:
+        except Exception as e:
+            print(f"Ошибка в get_classification_choices: {e}")
             # На случай ошибки БД, возвращаем базовые категории
             return cls.BASE_CLASSIFICATION_CHOICES
+
+    @classmethod
+    def clear_classification_cache(cls):
+        """Очищает кэш категорий (если он используется)"""
+        if hasattr(cls, '_classification_choices_cache'):
+            delattr(cls, '_classification_choices_cache')
+
+    @classmethod
+    def get_classification_choices_for_llm(cls):
+        """Возвращает полные данные категорий для LLM (с описаниями)"""
+        try:
+            custom_categories = ClassificationCategory.objects.filter(is_active=True)
+            if custom_categories.exists():
+                return [
+                    {
+                        "id": cat.number,
+                        "name": cat.name,
+                        "description": cat.description or ""
+                    }
+                    for cat in custom_categories.order_by('number')
+                ]
+            # Для базовых категорий создаем аналогичную структуру
+            return [
+                {
+                    "id": number,
+                    "name": name,
+                    "description": ""
+                }
+                for number, name in cls.BASE_CLASSIFICATION_CHOICES
+            ]
+        except Exception as e:
+            print(f"Ошибка в get_classification_choices_for_llm: {e}")
+            return []
 
 
 class AnalysisResult(models.Model):

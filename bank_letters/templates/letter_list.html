@@ -1,3 +1,4 @@
+<!-- letter_list.html - проверяем циклы -->
 {% extends 'base.html' %}
 
 {% block content %}
@@ -72,6 +73,7 @@
     </div>
 </div>
 
+<!-- Остальной код без изменений -->
 {% if letters %}
     {% for letter in letters %}
     <div class="card letter-card status-{{ letter.status }} mb-3

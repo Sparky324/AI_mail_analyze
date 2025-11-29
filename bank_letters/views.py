@@ -36,9 +36,13 @@ def classification_settings(request):
         # Инициализируем пустую форму
         form = ClassificationCategoriesForm()
 
+    # Получаем базовые категории из модели Letter
+    base_classification_choices = Letter.BASE_CLASSIFICATION_CHOICES
+
     context = {
         'form': form,
         'custom_categories': custom_categories,
+        'base_classification_choices': base_classification_choices,  # Добавляем базовые категории
         'has_existing_data': Letter.objects.exclude(
             classification__isnull=True).exists() or AnalysisResult.objects.exists(),
     }
@@ -69,7 +73,7 @@ def confirm_classification_change(request):
         'letters_count': letters_count,
         'analysis_count': analysis_count,
         'responses_count': responses_count,
-        'new_categories': categories_data,
+        'new_categories': categories_data,  # Передаем как есть - список словарей
     }
     return render(request, 'confirm_classification_change.html', context)
 
@@ -118,7 +122,6 @@ def apply_classification_changes(request, categories_data):
     return redirect('classification_settings')
 
 
-# Обновим letter_list для использования кастомных категорий
 def letter_list(request):
     """Главная страница - список всех писем"""
     # Базовый queryset
@@ -162,14 +165,21 @@ def letter_list(request):
 
     # Получаем текстовые представления для отображения
     status_choices = dict(Letter.STATUS_CHOICES)
-    classification_choices = Letter.get_classification_choices()  # Используем метод модели
+    classification_choices = Letter.get_classification_choices()
+
+    print("=== ОТЛАДКА letter_list ===")
+    print(f"classification_choices: {classification_choices}")
+    if classification_choices:
+        print(f"Первый элемент: {classification_choices[0]}")
+        print(f"Длина первого элемента: {len(classification_choices[0])}")
+    print("===========================")
 
     context = {
         'letters': letters,
         'status_choices': status_choices.items(),
         'classification_choices': classification_choices,
-        'now': timezone.now(),  # для сравнения с дедлайнами
-        'time_threshold': time_threshold,  # для отображения в шаблоне
+        'now': timezone.now(),
+        'time_threshold': time_threshold,
     }
 
     return render(request, 'letter_list.html', context)
@@ -202,6 +212,12 @@ def analyze_letter(request, letter_id):
 
     llm_client = LLMClient()
 
+    # Для LLM используем метод с полными данными
+    categories_for_llm = Letter.get_classification_choices_for_llm()
+
+    print(f"=== АНАЛИЗ ПИСЬМА {letter_id} ===")
+    print(f"Категории для LLM: {categories_for_llm}")
+
     # Подготавливаем текст для анализа
     text_to_analyze = f"""
     ОТПРАВИТЕЛЬ: {letter.sender}
@@ -210,8 +226,8 @@ def analyze_letter(request, letter_id):
     {letter.original_text}
     """
 
-    # Анализируем - получаем уже готовый словарь в правильном формате
-    analysis_result = llm_client.analyze_letter(text_to_analyze)
+    # Анализируем - передаем категории в метод analyze_letter
+    analysis_result = llm_client.analyze_letter(text_to_analyze, categories_for_llm)
 
     # Обновляем письмо - данные уже сконвертированы
     letter.summary = analysis_result['summary']
@@ -449,6 +465,12 @@ def get_letter_statistics(request):
         sla_deadline__lt=timezone.now()
     ).count()
 
+    # Исправляем расчет писем "в обработке"
+    # Письма в обработке - это все письма кроме завершенных и архивных
+    in_progress_letters = Letter.objects.exclude(
+        status__in=['done', 'archived']
+    ).count()
+
     context = {
         'total_letters': total_letters,
         'by_status': by_status,
@@ -456,8 +478,10 @@ def get_letter_statistics(request):
         'by_criticality': by_criticality,
         'urgent_letters': urgent_letters,
         'expired_letters': expired_letters,
+        'in_progress_letters': in_progress_letters,  # Добавляем правильный счетчик
         'urgent_percentage': round((urgent_letters / total_letters * 100), 1) if total_letters > 0 else 0,
         'expired_percentage': round((expired_letters / total_letters * 100), 1) if total_letters > 0 else 0,
+        'in_progress_percentage': round((in_progress_letters / total_letters * 100), 1) if total_letters > 0 else 0,
     }
 
     return render(request, 'statistics.html', context)
@@ -507,6 +531,9 @@ def apply_classification_reset(request):
         with transaction.atomic():
             # Деактивируем все пользовательские категории
             ClassificationCategory.objects.filter(is_active=True).update(is_active=False)
+
+            # Очищаем кэш категорий
+            Letter.clear_classification_cache()
 
             # Удаляем все данные анализа
             AnalysisResult.objects.all().delete()
