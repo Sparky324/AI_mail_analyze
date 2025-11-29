@@ -22,7 +22,7 @@ class LLMClient:
         self.processor = ResponseProcessor()
         self.data_folder = "data_simple"
         self.vector_store_id = None
-        self.vector_store_name = "rag_store_abandoned"
+        self.vector_store_name = "rag_store_abandoned_1"
 
         # Настройки таймаутов
         self.timeout_seconds = 30  # Увеличиваем таймаут
