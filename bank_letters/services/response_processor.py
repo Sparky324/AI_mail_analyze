@@ -161,29 +161,6 @@ class ResponseProcessor:
             print(f"Ошибка при извлечении response_style: {e}")
             return 2
 
-    def _extract_processing_time(self, parsed_response):
-        """Извлекает processing_time_hours из Pydantic модели"""
-        try:
-            if hasattr(parsed_response, 'processing_time_hours'):
-                time = parsed_response.processing_time_hours
-                print(f"Найдено поле processing_time_hours: {time}")
-                return int(time) if time else 24
-            return 24
-        except Exception as e:
-            print(f"Ошибка при извлечении processing_time_hours: {e}")
-            return 24
-
-    def _extract_sla_deadline(self, parsed_response):
-        """Извлекает sla_deadline из Pydantic модели"""
-        try:
-            if hasattr(parsed_response, 'sla_deadline'):
-                deadline = parsed_response.sla_deadline
-                print(f"Найдено поле sla_deadline: {deadline}")
-                return str(deadline) if deadline else ''
-            return ''
-        except Exception as e:
-            print(f"Ошибка при извлечении sla_deadline: {e}")
-            return ''
 
     def _extract_summary(self, parsed_response):
         """Извлекает summary из Pydantic модели"""
@@ -265,3 +242,46 @@ class ResponseProcessor:
             from datetime import timedelta
             default_deadline = timezone.now() + timedelta(hours=24)
             return default_deadline.strftime('%Y-%m-%d %H:%M:%S')
+
+    def _extract_processing_time(self, parsed_response):
+        """Извлекает processing_time_hours из Pydantic модели"""
+        try:
+            processing_time = None
+
+            if hasattr(parsed_response, 'processing_time_hours'):
+                processing_time = parsed_response.processing_time_hours
+                print(f"Найдено поле processing_time_hours: {processing_time}")
+
+            # Если время обработки не указано или всегда 24, рассчитываем автоматически
+            if not processing_time or processing_time == 24:
+                return self._calculate_processing_time(parsed_response)
+
+            return int(processing_time)
+
+        except Exception as e:
+            print(f"Ошибка при извлечении processing_time_hours: {e}")
+            return self._calculate_processing_time(parsed_response)
+
+    def _calculate_processing_time(self, parsed_response):
+        """Автоматически рассчитывает время обработки на основе criticality_level"""
+        try:
+            criticality_level = self._extract_criticality_level(parsed_response)
+
+            # Рассчитываем время обработки в зависимости от критичности
+            if criticality_level == 1:  # Низкий
+                processing_time = 48
+            elif criticality_level == 2:  # Средний
+                processing_time = 24
+            elif criticality_level == 3:  # Высокий
+                processing_time = 8
+            else:  # Критический (4)
+                processing_time = 4
+
+            print(
+                f"Рассчитано автоматическое время обработки: {processing_time} часов (критичность: {criticality_level})")
+
+            return processing_time
+
+        except Exception as e:
+            print(f"Ошибка при расчете времени обработки: {e}")
+            return 24  # По умолчанию
