@@ -81,7 +81,7 @@
                     <h5 class="mb-0">История вопросов и ответов</h5>
                 </div>
                 <div class="card-body">
-                    {% for qa in questions reversed %}
+                    {% for qa in questions %}
                     <div class="mb-4 pb-4 {% if not forloop.last %}border-bottom{% endif %}">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h6 class="text-primary mb-0">Вопрос:</h6>

@@ -580,8 +580,8 @@ def ask_question(request, letter_id):
     """Страница для задавания вопросов LLM о письме"""
     letter = get_object_or_404(Letter, id=letter_id)
 
-    # Получаем историю вопросов к этому письму
-    questions = LetterQuestion.objects.filter(letter=letter).order_by('asked_at')
+    # Получаем историю вопросов к этому письму (новые сверху) - ИСПРАВЛЕНО
+    questions = LetterQuestion.objects.filter(letter=letter).order_by('-asked_at')
 
     if request.method == 'POST':
         question_text = request.POST.get('question', '').strip()
@@ -612,6 +612,7 @@ def ask_question(request, letter_id):
                     answer=answer
                 )
 
+                messages.success(request, "Ответ от LLM получен!", extra_tags='question')
                 return redirect('ask_question', letter_id=letter.id)
 
             except Exception as e:

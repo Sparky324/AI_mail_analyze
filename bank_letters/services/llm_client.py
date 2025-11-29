@@ -148,15 +148,14 @@ class LLMClient:
         rag_query_2 = f"Что нужно сделать: {user_commentary}..."
         rag_context_2 = self._rag_search(rag_query_2)
 
-        # ИСПРАВЛЕНИЕ: Всегда гарантируем, что есть основной контент
-        input_content = text_email  # Основной текст письма как fallback
+        # ИСПРАВЛЕНИЕ: Включаем и текст письма И вопрос пользователя
+        input_content = f"Текст письма:\n{text_email}\n\nВопрос пользователя:\n{user_commentary}"
 
         if rag_context or rag_context_2:
-            input_content = f"Контекст для составления ответа:\n{rag_context}\n{rag_context_2}\n\nОсновной текст письма:\n{text_email}"
+            input_content = f"Контекст для составления ответа:\n{rag_context}\n{rag_context_2}\n\nТекст письма:\n{text_email}\n\nВопрос пользователя:\n{user_commentary}"
             print(f'Контекст от RAG: {rag_context}\n{rag_context_2}')
         else:
-            print(f'Контекста от RAG не было, используем только текст письма')
-            input_content = f"Текст письма для анализа:\n{text_email}"
+            print(f'Контекста от RAG не было, используем текст письма и вопрос пользователя')
 
         model = self.make_model(model_name=YAGPT_MODEL_NAME)
         try:
@@ -164,7 +163,7 @@ class LLMClient:
                 model=model,
                 text_format=TextGeneration,
                 instructions=instructions,
-                input=input_content  # Теперь всегда будет непустой контент
+                input=input_content  # Теперь содержит и письмо и вопрос
             )
 
             return res.output_parsed.response
@@ -188,7 +187,6 @@ class LLMClient:
             simplified_prompt = f"""
             {instructions}
 
-            Контекст:
             {input_content}
             """
 
@@ -207,6 +205,7 @@ class LLMClient:
         except Exception as e:
             print(f"Ошибка в fallback методе для текста: {e}")
             return "Извините, не удалось обработать ваш запрос. Пожалуйста, попробуйте переформулировать вопрос."
+
 
     def _generate_response_fallback(self, prompt, model):
         """Альтернативный способ генерации ответа с упрощенным запросом"""
@@ -299,10 +298,21 @@ class LLMClient:
                 self.vector_store_id = existing_store.id
                 print(
                     f"Используется существующее векторное хранилище: {vector_store_name} (ID: {self.vector_store_id})")
+
+                # Проверяем, есть ли файлы в хранилище
+                files = self.client.vector_stores.files.list(vector_store_id=self.vector_store_id)
+                print(f"Количество файлов в хранилище: {len(files.data)}")
+
+                if len(files.data) == 0:
+                    print("Хранилище пустое, загружаем файлы...")
+                    self.load_txt_files_to_vector_store()
             else:
                 vector_store = self.client.vector_stores.create(name=vector_store_name)
                 self.vector_store_id = vector_store.id
                 print(f"Создано новое векторное хранилище: {vector_store_name} (ID: {self.vector_store_id})")
+
+                # Загружаем файлы в новое хранилище
+                self.load_txt_files_to_vector_store()
 
         except Exception as e:
             print(f"Ошибка при инициализации RAG: {e}")
@@ -319,6 +329,7 @@ class LLMClient:
         if not data_path.exists():
             print(f"Папка {self.data_folder} не существует, создаем...")
             data_path.mkdir(parents=True, exist_ok=True)
+            print(f"Пожалуйста, добавьте txt файлы в папку {self.data_folder} для работы RAG")
             return
 
         # Ищем все txt файлы
@@ -326,6 +337,7 @@ class LLMClient:
 
         if not txt_files:
             print(f"В папке {self.data_folder} не найдено txt файлов")
+            print(f"Абсолютный путь к папке: {data_path.absolute()}")
             return
 
         print(f"Найдено {len(txt_files)} txt файлов для загрузки")
@@ -334,7 +346,13 @@ class LLMClient:
         successful_uploads = 0
         for file_path in txt_files:
             try:
-                print(f"Загружаем файл: {file_path}")
+                print(f"Загружаем файл: {file_path.name}")
+
+                # Проверяем размер файла
+                file_size = file_path.stat().st_size
+                if file_size == 0:
+                    print(f"Файл {file_path.name} пустой, пропускаем")
+                    continue
 
                 # Загружаем файл напрямую
                 with open(file_path, 'rb') as file:
@@ -350,7 +368,7 @@ class LLMClient:
                         file_id=oai_file.id
                     )
 
-                    print(f"Успешно загружен: {file_path} (ID файла: {oai_file.id})")
+                    print(f"Успешно загружен: {file_path.name} (ID файла: {oai_file.id}, размер: {file_size} байт)")
                     successful_uploads += 1
 
             except Exception as e:
@@ -358,13 +376,15 @@ class LLMClient:
 
         print(f"Успешно загружено {successful_uploads} из {len(txt_files)} файлов")
 
-    def _rag_search(self, query, max_results=3):
+    def _rag_search(self, query, max_results=5):
         """Поиск релевантной информации в векторном хранилище"""
         if not self.vector_store_id:
             print("Vector store не доступен, пропускаем RAG поиск")
             return ""
 
         try:
+            print(f"Выполняем RAG поиск по запросу: '{query}'")
+
             # Используем поиск по векторному хранилищу
             search_results = self.client.vector_stores.search(
                 vector_store_id=self.vector_store_id,
@@ -373,16 +393,26 @@ class LLMClient:
             )
 
             if not search_results.data:
+                print("RAG поиск не вернул результатов")
                 return ""
+
+            print(f"RAG поиск вернул {len(search_results.data)} результатов")
 
             # Форматируем результаты
             context_parts = []
             for i, result in enumerate(search_results.data, 1):
                 context_text = getattr(result, 'text', getattr(result, 'content', ''))
                 if context_text:
+                    # Обрезаем слишком длинные тексты
+                    if len(context_text) > 1000:
+                        context_text = context_text[:1000] + "..."
                     context_parts.append(f"[Документ {i}]: {context_text}")
+                    print(f"Найден релевантный документ {i}")
 
-            return "\n\n".join(context_parts)
+            result = "\n\n".join(context_parts)
+            print(f"Общий размер контекста RAG: {len(result)} символов")
+            return result
+
         except Exception as e:
             print(f"Ошибка при RAG поиске: {e}")
             return ""
