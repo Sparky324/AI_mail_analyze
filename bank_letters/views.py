@@ -2,12 +2,125 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
+from django.contrib import messages
+from django.db import transaction
 from datetime import timedelta
-from .forms import LetterUploadForm
-from .models import Letter, AnalysisResult, GeneratedResponse
+from .forms import ClassificationCategoriesForm
+from .models import Letter, AnalysisResult, GeneratedResponse, ClassificationCategory
 from .services.llm_client import LLMClient
 
 
+def classification_settings(request):
+    """Настройка классификаторов"""
+    custom_categories = ClassificationCategory.objects.filter(is_active=True).order_by('number')
+
+    if request.method == 'POST':
+        form = ClassificationCategoriesForm(request.POST)
+        if form.is_valid():
+            categories_data = form.cleaned_data['categories']
+
+            # Предупреждение о потере данных
+            if Letter.objects.exclude(classification__isnull=True).exists() or AnalysisResult.objects.exists():
+                messages.warning(request,
+                                 "Внимание! Все существующие результаты анализа писем будут удалены, "
+                                 "так как изменятся категории классификации. Это необходимо для "
+                                 "предотвращения конфликта данных."
+                                 )
+                # Сохраняем данные в сессии для подтверждения
+                request.session['pending_categories'] = categories_data
+                return redirect('confirm_classification_change')
+
+            # Если нет существующих данных, сразу применяем изменения
+            return apply_classification_changes(request, categories_data)
+    else:
+        # Заполняем форму существующими категориями
+        initial_text = ""
+        for category in custom_categories:
+            initial_text += f"{category.number}. {category.name}\n"
+        form = ClassificationCategoriesForm(initial={'categories': initial_text})
+
+    context = {
+        'form': form,
+        'custom_categories': custom_categories,
+        'has_existing_data': Letter.objects.exclude(
+            classification__isnull=True).exists() or AnalysisResult.objects.exists(),
+    }
+    return render(request, 'classification_settings.html', context)
+
+
+def confirm_classification_change(request):
+    """Подтверждение изменения классификаторов с удалением данных"""
+    if 'pending_categories' not in request.session:
+        return redirect('classification_settings')
+
+    categories_data = request.session['pending_categories']
+
+    if request.method == 'POST':
+        if 'confirm' in request.POST:
+            return apply_classification_changes(request, categories_data)
+        else:
+            # Отмена - очищаем сессию и возвращаем к настройкам
+            del request.session['pending_categories']
+            return redirect('classification_settings')
+
+    # Подсчет данных для удаления
+    letters_count = Letter.objects.exclude(classification__isnull=True).count()
+    analysis_count = AnalysisResult.objects.count()
+    responses_count = GeneratedResponse.objects.count()
+
+    context = {
+        'letters_count': letters_count,
+        'analysis_count': analysis_count,
+        'responses_count': responses_count,
+        'new_categories': categories_data,
+    }
+    return render(request, 'confirm_classification_change.html', context)
+
+
+def apply_classification_changes(request, categories_data):
+    """Применение изменений классификаторов"""
+    try:
+        with transaction.atomic():
+            # Деактивируем старые категории
+            ClassificationCategory.objects.filter(is_active=True).update(is_active=False)
+
+            # Создаем новые категории
+            for number, name in categories_data:
+                ClassificationCategory.objects.create(
+                    number=number,
+                    name=name,
+                    is_active=True
+                )
+
+            # Удаляем все данные анализа
+            AnalysisResult.objects.all().delete()
+            GeneratedResponse.objects.all().delete()
+
+            # Сбрасываем классификацию у всех писем
+            Letter.objects.all().update(
+                classification=None,
+                summary='',
+                criticality_level=None,
+                response_style=None,
+                processing_time_hours=None,
+                sla_deadline=None,
+                final_response='',
+                status='new'
+            )
+
+            messages.success(request, "Классификаторы успешно обновлены! Все письма помечены для повторного анализа.")
+
+            # Очищаем сессию
+            if 'pending_categories' in request.session:
+                del request.session['pending_categories']
+
+    except Exception as e:
+        messages.error(request, f"Ошибка при обновлении классификаторов: {str(e)}")
+
+    return redirect('classification_settings')
+
+
+# Обновим letter_list для использования кастомных категорий
 def letter_list(request):
     """Главная страница - список всех писем"""
     # Базовый queryset
@@ -51,12 +164,12 @@ def letter_list(request):
 
     # Получаем текстовые представления для отображения
     status_choices = dict(Letter.STATUS_CHOICES)
-    classification_choices = dict(Letter.CLASSIFICATION_CHOICES)
+    classification_choices = Letter.get_classification_choices()  # Используем метод модели
 
     context = {
         'letters': letters,
         'status_choices': status_choices.items(),
-        'classification_choices': classification_choices.items(),
+        'classification_choices': classification_choices,
         'now': timezone.now(),  # для сравнения с дедлайнами
         'time_threshold': time_threshold,  # для отображения в шаблоне
     }

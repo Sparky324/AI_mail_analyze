@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Настройка классификаторов</h2>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="alert alert-info">
+                        <h5>Рекомендации по настройке классификаторов:</h5>
+                        <ul class="mb-0">
+                            <li>Количество категорий: от 2 до 9</li>
+                            <li><strong>Рекомендуемое количество: от 4 до 7 категорий</strong></li>
+                            <li>Используйте понятные и конкретные названия</li>
+                            <li>Нумерация должна начинаться с 1 и быть последовательной</li>
+                        </ul>
+                    </div>
+
+                    {% if custom_categories %}
+                    <div class="mb-4">
+                        <h5>Текущие категории:</h5>
+                        <ul class="list-group">
+                            {% for category in custom_categories %}
+                            <li class="list-group-item">
+                                <strong>{{ category.number }}.</strong> {{ category.name }}
+                                {% if category.description %}
+                                <br><small class="text-muted">{{ category.description }}</small>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {% if has_existing_data %}
+                    <div class="alert alert-warning">
+                        <strong>Внимание!</strong> При изменении классификаторов все существующие
+                        результаты анализа будут удалены, а письма помечены для повторного анализа.
+                    </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            {{ form.categories.label_tag }}
+                            {{ form.categories }}
+                            {% if form.categories.help_text %}
+                                <div class="form-text">{{ form.categories.help_text }}</div>
+                            {% endif %}
+                            {% if form.categories.errors %}
+                                <div class="alert alert-danger">{{ form.categories.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'letter_list' %}" class="btn btn-secondary me-md-2">Отмена</a>
+                            <button type="submit" class="btn btn-primary">Сохранить классификаторы</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

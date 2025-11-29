@@ -11,4 +11,6 @@ urlpatterns = [
     path('letter/<int:letter_id>/', views.letter_detail, name='letter_detail'),
     path('letter/<int:letter_id>/update-status/', views.update_letter_status, name='update_letter_status'),
     path('statistics/', views.get_letter_statistics, name='letter_statistics'),
+    path('classification-settings/', views.classification_settings, name='classification_settings'),
+    path('classification-settings/confirm/', views.confirm_classification_change, name='confirm_classification_change'),
 ]

@@ -1,10 +1,29 @@
+# models.py
 from django.db import models
 from django.utils import timezone
 
 
+class ClassificationCategory(models.Model):
+    """Модель для пользовательских категорий классификации"""
+    number = models.IntegerField(verbose_name="Номер категории")
+    name = models.CharField(max_length=255, verbose_name="Название категории")
+    description = models.TextField(blank=True, verbose_name="Описание категории")
+    is_active = models.BooleanField(default=True, verbose_name="Активна")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Категория классификации"
+        verbose_name_plural = "Категории классификации"
+        ordering = ['number']
+
+    def __str__(self):
+        return f"{self.number}. {self.name}"
+
+
 class Letter(models.Model):
-    # Классификация (1-6)
-    CLASSIFICATION_CHOICES = [
+    # Базовые категории (будут использоваться только если нет пользовательских)
+    BASE_CLASSIFICATION_CHOICES = [
         (1, 'Запрос информации/документов'),
         (2, 'Официальная жалоба или претензия'),
         (3, 'Регуляторный запрос'),
@@ -38,6 +57,7 @@ class Letter(models.Model):
         ('done', 'Завершено'),
         ('archived', 'В архиве'),
     ]
+
     # Основные поля (заполняются пользователем)
     sender = models.CharField(
         max_length=255,
@@ -59,7 +79,6 @@ class Letter(models.Model):
         help_text="Краткое содержание письма, сгенерированное нейросетью"
     )
     classification = models.IntegerField(
-        choices=CLASSIFICATION_CHOICES,
         null=True,
         blank=True,
         verbose_name="Классификация"
@@ -80,7 +99,7 @@ class Letter(models.Model):
         null=True,
         blank=True,
         verbose_name="Время на обработку (часы)",
-        help_text="Примерное время, необходимое для обработки письма"
+        help_text="Примерное время, необходимое для обработку письма"
     )
     sla_deadline = models.DateTimeField(
         null=True,
@@ -115,6 +134,40 @@ class Letter(models.Model):
         if len(self.subject) > 50:
             return self.subject[:47] + '...'
         return self.subject
+
+    def get_classification_display(self):
+        """Возвращает отображаемое название классификации"""
+        from django.db import connection
+        try:
+            # Проверяем, есть ли пользовательские категории
+            if ClassificationCategory.objects.filter(is_active=True).exists():
+                custom_categories = ClassificationCategory.objects.filter(is_active=True)
+                for category in custom_categories:
+                    if category.number == self.classification:
+                        return category.name
+            # Если нет пользовательских или не нашли совпадение, используем базовые
+            for num, name in self.BASE_CLASSIFICATION_CHOICES:
+                if num == self.classification:
+                    return name
+            return "Не определен"
+        except:
+            # На случай ошибки БД
+            for num, name in self.BASE_CLASSIFICATION_CHOICES:
+                if num == self.classification:
+                    return name
+            return "Не определен"
+
+    @classmethod
+    def get_classification_choices(cls):
+        """Возвращает актуальные choices для классификации"""
+        from django.db import connection
+        try:
+            custom_categories = ClassificationCategory.objects.filter(is_active=True)
+            if custom_categories.exists():
+                return [(cat.number, cat.name) for cat in custom_categories]
+            return cls.BASE_CLASSIFICATION_CHOICES
+        except:
+            return cls.BASE_CLASSIFICATION_CHOICES
 
 
 class AnalysisResult(models.Model):
