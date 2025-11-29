@@ -1,95 +1,220 @@
+<!-- statistics.html -->
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Статистика</h1>
-    <a href="{% url 'letter_list' %}" class="btn btn-secondary">← Назад к списку</a>
-</div>
+<div class="container">
+    <h1 class="mb-4">Статистика писем</h1>
 
-<div class="row">
     <!-- Общая статистика -->
-    <div class="col-md-4">
-        <div class="card text-white bg-primary mb-4">
-            <div class="card-body text-center">
-                <h2 class="card-title display-4">{{ total_letters }}</h2>
-                <p class="card-text h5">Всего писем</p>
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h2 class="display-4">{{ total_letters }}</h2>
+                    <p class="card-text">Всего писем</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-warning">
+                <div class="card-body">
+                    <h2 class="display-4 text-warning">{{ urgent_letters }}</h2>
+                    <p class="card-text">Срочные письма</p>
+                    <small class="text-muted">{{ urgent_percentage }}% от общего числа</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-danger">
+                <div class="card-body">
+                    <h2 class="display-4 text-danger">{{ expired_letters }}</h2>
+                    <p class="card-text">Просроченные</p>
+                    <small class="text-muted">{{ expired_percentage }}% от общего числа</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-success">
+                <div class="card-body">
+                    <h2 class="display-4 text-success">
+                        {% if total_letters > 0 %}
+                            {{ total_letters|add:expired_letters|add:urgent_letters|divisibleby:total_letters|default:100 }}
+                        {% else %}
+                            0
+                        {% endif %}
+                    </h2>
+                    <p class="card-text">В обработке</p>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Статистика по статусам -->
-    {% for status_key, status_data in by_status.items %}
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-body text-center">
-                <h3 class="card-title display-6">{{ status_data.count }}</h3>
-                <p class="card-text h6">
-                    <span class="badge bg-{% if status_key == 'new' %}secondary{% elif status_key == 'analyzed' %}info{% elif status_key == 'response_generated' %}warning{% else %}success{% endif %}">
-                        {{ status_data.name }}
-                    </span>
-                </p>
-                {% if status_data.percentage > 0 %}
-                <div class="mt-2">
-                    <small class="text-muted">{{ status_data.percentage }}% от общего числа</small>
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Статистика по статусам</h5>
                 </div>
-                {% endif %}
+                <div class="card-body">
+                    {% if by_status %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Статус</th>
+                                        <th>Количество</th>
+                                        <th>Процент</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for status_data in by_status.values %}
+                                    <tr>
+                                        <td>{{ status_data.name }}</td>
+                                        <td>{{ status_data.count }}</td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar" role="progressbar"
+                                                     style="width: {{ status_data.percentage }}%;"
+                                                     aria-valuenow="{{ status_data.percentage }}"
+                                                     aria-valuemin="0" aria-valuemax="100">
+                                                    {{ status_data.percentage }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Нет данных о статусах</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Статистика по классификациям -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Статистика по типам писем</h5>
+                </div>
+                <div class="card-body">
+                    {% if by_classification %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Тип письма</th>
+                                        <th>Количество</th>
+                                        <th>Процент</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for class_data in by_classification.values %}
+                                    <tr>
+                                        <td>{{ class_data.name }}</td>
+                                        <td>{{ class_data.count }}</td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar bg-info" role="progressbar"
+                                                     style="width: {{ class_data.percentage }}%;"
+                                                     aria-valuenow="{{ class_data.percentage }}"
+                                                     aria-valuemin="0" aria-valuemax="100">
+                                                    {{ class_data.percentage }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Нет данных о классификации</p>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
-    {% endfor %}
-</div>
 
-<!-- Статистика по классификациям -->
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Распределение по типам писем</h5>
-            </div>
-            <div class="card-body">
-                {% if by_classification %}
-                    <div class="row">
-                        {% for class_key, class_data in by_classification.items %}
-                        <div class="col-md-3 mb-3">
-                            <div class="d-flex justify-content-between align-items-center p-2 border rounded">
-                                <span>{{ class_data.name }}</span>
-                                <span class="badge bg-secondary">{{ class_data.count }}</span>
-                            </div>
+    <!-- Статистика по критичности -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Статистика по уровню критичности</h5>
+                </div>
+                <div class="card-body">
+                    {% if by_criticality %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Уровень критичности</th>
+                                        <th>Количество</th>
+                                        <th>Процент</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for crit_data in by_criticality.values %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-{% if crit_data.name == 'Низкий' %}success{% elif crit_data.name == 'Средний' %}warning{% elif crit_data.name == 'Высокий' %}danger{% else %}dark{% endif %}">
+                                                {{ crit_data.name }}
+                                            </span>
+                                        </td>
+                                        <td>{{ crit_data.count }}</td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar
+                                                    {% if crit_data.name == 'Низкий' %}bg-success
+                                                    {% elif crit_data.name == 'Средний' %}bg-warning
+                                                    {% elif crit_data.name == 'Высокий' %}bg-danger
+                                                    {% else %}bg-dark{% endif %}"
+                                                    role="progressbar"
+                                                    style="width: {{ crit_data.percentage }}%;"
+                                                    aria-valuenow="{{ crit_data.percentage }}"
+                                                    aria-valuemin="0" aria-valuemax="100">
+                                                    {{ crit_data.percentage }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-muted">Нет данных по классификациям</p>
-                {% endif %}
+                    {% else %}
+                        <p class="text-muted">Нет данных о критичности</p>
+                    {% endif %}
+                </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Статистика по критичности -->
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Распределение по уровню критичности</h5>
-            </div>
-            <div class="card-body">
-                {% if by_criticality %}
-                    <div class="row">
-                        {% for crit_key, crit_data in by_criticality.items %}
-                        <div class="col-md-3 mb-3">
-                            <div class="d-flex justify-content-between align-items-center p-2 border rounded">
-                                <span>{{ crit_data.name }}</span>
-                                <span class="badge bg-{% if crit_key == 1 %}success{% elif crit_key == 2 %}warning{% elif crit_key == 3 %}danger{% else %}dark{% endif %}">
-                                    {{ crit_data.count }}
-                                </span>
-                            </div>
-                        </div>
-                        {% endfor %}
+        <!-- Дополнительная информация -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Информация о системе</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Используемые категории классификации:</strong>
+                        <ul class="mt-2">
+                            {% for number, name in letter.get_classification_choices %}
+                                <li><strong>{{ number }}.</strong> {{ name }}</li>
+                            {% endfor %}
+                        </ul>
                     </div>
-                {% else %}
-                    <p class="text-muted">Нет данных по критичности</p>
-                {% endif %}
+                    <div class="mb-3">
+                        <strong>Всего категорий:</strong> {{ letter.get_classification_choices|length }}
+                    </div>
+                    <div>
+                        <strong>Последнее обновление:</strong> {% now "d.m.Y H:i" %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>

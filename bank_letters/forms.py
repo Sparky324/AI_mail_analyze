@@ -32,48 +32,56 @@ class ClassificationCategoryForm(forms.ModelForm):
     class Meta:
         model = ClassificationCategory
         fields = ['number', 'name', 'description']
+        widgets = {
+            'number': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 9}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Введите название категории'}),
+            'description': forms.Textarea(
+                attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Необязательное описание категории'}),
+        }
 
 
 class ClassificationCategoriesForm(forms.Form):
-    """Форма для множественного ввода категорий"""
-    categories = forms.CharField(
-        widget=forms.Textarea(attrs={
-            'rows': 10,
-            'placeholder': 'Введите категории в формате:\n1. Название первой категории\n2. Название второй категории\n3. Название третьей категории\n...',
-            'class': 'form-control'
-        }),
-        label='Категории классификации',
-        help_text='Введите каждую категорию с новой строки в формате "номер. название". Допустимо от 2 до 9 категорий.'
+    """Форма для множественного ввода категорий через интерактивный интерфейс"""
+    categories_json = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False
     )
 
-    def clean_categories(self):
-        categories_text = self.cleaned_data['categories']
-        lines = [line.strip() for line in categories_text.split('\n') if line.strip()]
+    def clean_categories_json(self):
+        categories_json = self.cleaned_data['categories_json']
+        if not categories_json:
+            raise forms.ValidationError("Должна быть хотя бы одна категория")
 
-        if len(lines) < 2:
-            raise forms.ValidationError("Должно быть не менее 2 категорий")
-        if len(lines) > 9:
-            raise forms.ValidationError("Должно быть не более 9 категорий")
+        try:
+            import json
+            categories_data = json.loads(categories_json)
 
-        categories = []
-        for line in lines:
-            # Парсим строки вида "1. Название категории"
-            if '.' in line:
-                parts = line.split('.', 1)
-                try:
-                    number = int(parts[0].strip())
-                    name = parts[1].strip()
-                    if not name:
-                        raise forms.ValidationError(f"Название категории не может быть пустым для номера {number}")
-                    categories.append((number, name))
-                except (ValueError, IndexError):
-                    raise forms.ValidationError(f"Неверный формат строки: {line}. Используйте формат 'номер. название'")
-            else:
-                raise forms.ValidationError(f"Неверный формат строки: {line}. Используйте формат 'номер. название'")
+            if len(categories_data) < 2:
+                raise forms.ValidationError("Должно быть не менее 2 категорий")
+            if len(categories_data) > 9:
+                raise forms.ValidationError("Должно быть не более 9 категорий")
 
-        # Проверяем уникальность номеров
-        numbers = [cat[0] for cat in categories]
-        if len(numbers) != len(set(numbers)):
-            raise forms.ValidationError("Номера категорий должны быть уникальными")
+            # Проверяем уникальность номеров и названий
+            numbers = [cat['number'] for cat in categories_data]
+            names = [cat['name'].strip() for cat in categories_data]
 
-        return categories
+            if len(numbers) != len(set(numbers)):
+                raise forms.ValidationError("Номера категорий должны быть уникальными")
+
+            if len(names) != len(set(names)):
+                raise forms.ValidationError("Названия категорий должны быть уникальными")
+
+            # Проверяем, что номера идут по порядку от 1
+            expected_numbers = list(range(1, len(categories_data) + 1))
+            if numbers != expected_numbers:
+                raise forms.ValidationError("Номера категорий должны идти по порядку от 1")
+
+            # Проверяем, что все названия заполнены
+            for i, cat in enumerate(categories_data):
+                if not cat['name'].strip():
+                    raise forms.ValidationError(f"Название категории {i + 1} не может быть пустым")
+
+            return categories_data
+
+        except json.JSONDecodeError:
+            raise forms.ValidationError("Неверный формат данных категорий")

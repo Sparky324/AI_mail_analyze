@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-md-10">
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
@@ -31,20 +32,25 @@
                             <li>Количество категорий: от 2 до 9</li>
                             <li><strong>Рекомендуемое количество: от 4 до 7 категорий</strong></li>
                             <li>Используйте понятные и конкретные названия</li>
-                            <li>Нумерация должна начинаться с 1 и быть последовательной</li>
+                            <li>Описание категории поможет нейросети точнее классифицировать письма</li>
                         </ul>
                     </div>
 
+                    <!-- Текущие категории -->
                     {% if custom_categories %}
                     <div class="mb-4">
                         <h5>Текущие категории:</h5>
                         <ul class="list-group">
                             {% for category in custom_categories %}
                             <li class="list-group-item">
-                                <strong>{{ category.number }}.</strong> {{ category.name }}
-                                {% if category.description %}
-                                <br><small class="text-muted">{{ category.description }}</small>
-                                {% endif %}
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong>{{ category.number }}.</strong> {{ category.name }}
+                                        {% if category.description %}
+                                        <br><small class="text-muted">{{ category.description }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </li>
                             {% endfor %}
                         </ul>
@@ -58,7 +64,7 @@
                     <div class="mb-4">
                         <h5>Базовые категории:</h5>
                         <ul class="list-group">
-                            {% for number, name in letter.get_classification_choices %}
+                            {% for number, name in letter.get_base_classification_choices %}
                             <li class="list-group-item"><strong>{{ number }}.</strong> {{ name }}</li>
                             {% endfor %}
                         </ul>
@@ -72,23 +78,30 @@
                     </div>
                     {% endif %}
 
-                    <form method="post">
-                        {% csrf_token %}
-
-                        <div class="mb-3">
-                            {{ form.categories.label_tag }}
-                            {{ form.categories }}
-                            {% if form.categories.help_text %}
-                                <div class="form-text">{{ form.categories.help_text }}</div>
-                            {% endif %}
-                            {% if form.categories.errors %}
-                                <div class="alert alert-danger">{{ form.categories.errors }}</div>
-                            {% endif %}
+                    <!-- Интерактивный список категорий -->
+                    <div class="mb-4">
+                        <h5>Настройка категорий:</h5>
+                        <div id="categories-list" class="mb-3">
+                            <!-- Категории будут добавляться здесь динамически -->
                         </div>
+
+                        <!-- Кнопка добавления новой категории -->
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                            <i class="bi bi-plus-circle"></i> Добавить категорию
+                        </button>
+
+                        <div class="form-text">
+                            Текущее количество категорий: <span id="categories-count">0</span>/9
+                        </div>
+                    </div>
+
+                    <form method="post" id="categories-form">
+                        {% csrf_token %}
+                        {{ form.categories_json }}
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <a href="{% url 'letter_list' %}" class="btn btn-secondary me-md-2">Отмена</a>
-                            <button type="submit" class="btn btn-primary">Сохранить классификаторы</button>
+                            <button type="submit" class="btn btn-primary" id="submit-btn" disabled>Сохранить классификаторы</button>
                         </div>
                     </form>
                 </div>
@@ -96,4 +109,200 @@
         </div>
     </div>
 </div>
+
+<!-- Модальное окно добавления категории -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить категорию</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-category-form">
+                    <div class="mb-3">
+                        <label class="form-label">Название категории *</label>
+                        <input type="text" class="form-control" id="category-name" required
+                               placeholder="Например: Запрос документов">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Описание категории</label>
+                        <textarea class="form-control" id="category-description" rows="3"
+                                  placeholder="Необязательное описание, которое поможет нейросети точнее классифицировать письма"></textarea>
+                        <div class="form-text">
+                            Опишите, какие типы писем относятся к этой категории
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="save-category-btn">Добавить категорию</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Шаблон для элемента категории -->
+<template id="category-template">
+    <div class="card category-item mb-2">
+        <div class="card-body py-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="flex-grow-1">
+                    <span class="category-number badge bg-secondary me-2"></span>
+                    <strong class="category-name"></strong>
+                    <div class="category-description text-muted small"></div>
+                </div>
+                <button type="button" class="btn btn-outline-danger btn-sm delete-category">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
+
+<style>
+.category-item {
+    border-left: 4px solid #007bff;
+}
+.category-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categoriesList = document.getElementById('categories-list');
+    const categoriesJson = document.getElementById('id_categories_json');
+    const categoriesCount = document.getElementById('categories-count');
+    const submitBtn = document.getElementById('submit-btn');
+    const categoryTemplate = document.getElementById('category-template');
+
+    let categories = [];
+
+    // Загрузка существующих категорий при редактировании
+    {% if custom_categories %}
+        categories = [
+        {% for category in custom_categories %}
+            {
+                number: {{ category.number }},
+                name: '{{ category.name|escapejs }}',
+                description: '{{ category.description|escapejs }}'
+            }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+        ];
+        updateCategoriesList();
+    {% endif %}
+
+    // Обработчик сохранения категории из модального окна
+    document.getElementById('save-category-btn').addEventListener('click', function() {
+        const name = document.getElementById('category-name').value.trim();
+        const description = document.getElementById('category-description').value.trim();
+
+        if (!name) {
+            alert('Пожалуйста, введите название категории');
+            return;
+        }
+
+        if (categories.length >= 9) {
+            alert('Максимальное количество категорий - 9');
+            return;
+        }
+
+        // Проверяем уникальность названия
+        if (categories.some(cat => cat.name === name)) {
+            alert('Категория с таким названием уже существует');
+            return;
+        }
+
+        const newCategory = {
+            number: categories.length + 1,
+            name: name,
+            description: description
+        };
+
+        categories.push(newCategory);
+        updateCategoriesList();
+
+        // Очищаем форму и закрываем модальное окно
+        document.getElementById('category-name').value = '';
+        document.getElementById('category-description').value = '';
+        bootstrap.Modal.getInstance(document.getElementById('addCategoryModal')).hide();
+    });
+
+    // Обновление списка категорий
+    function updateCategoriesList() {
+        categoriesList.innerHTML = '';
+        categories.forEach((category, index) => {
+            const categoryElement = categoryTemplate.content.cloneNode(true);
+
+            categoryElement.querySelector('.category-number').textContent = category.number + '.';
+            categoryElement.querySelector('.category-name').textContent = category.name;
+
+            const descriptionElement = categoryElement.querySelector('.category-description');
+            if (category.description) {
+                descriptionElement.textContent = category.description;
+            } else {
+                descriptionElement.style.display = 'none';
+            }
+
+            // Обработчик удаления категории
+            categoryElement.querySelector('.delete-category').addEventListener('click', function() {
+                categories.splice(index, 1);
+                // Перенумеровываем оставшиеся категории
+                categories.forEach((cat, i) => {
+                    cat.number = i + 1;
+                });
+                updateCategoriesList();
+            });
+
+            categoriesList.appendChild(categoryElement);
+        });
+
+        // Обновляем счетчик и JSON
+        categoriesCount.textContent = categories.length;
+        categoriesJson.value = JSON.stringify(categories);
+
+        // Активируем/деактивируем кнопку отправки
+        submitBtn.disabled = categories.length < 2;
+
+        // Показываем предупреждение если категорий мало
+        if (categories.length > 0 && categories.length < 4) {
+            if (!document.getElementById('min-categories-warning')) {
+                const warning = document.createElement('div');
+                warning.id = 'min-categories-warning';
+                warning.className = 'alert alert-warning mt-3';
+                warning.innerHTML = '<strong>Рекомендация:</strong> Для лучшей классификации рекомендуется иметь от 4 до 7 категорий.';
+                categoriesList.parentNode.insertBefore(warning, categoriesList.nextSibling);
+            }
+        } else {
+            const warning = document.getElementById('min-categories-warning');
+            if (warning) {
+                warning.remove();
+            }
+        }
+    }
+
+    // Валидация формы перед отправкой
+    document.getElementById('categories-form').addEventListener('submit', function(e) {
+        if (categories.length < 2) {
+            e.preventDefault();
+            alert('Должно быть не менее 2 категорий');
+            return;
+        }
+
+        if (categories.length > 9) {
+            e.preventDefault();
+            alert('Должно быть не более 9 категорий');
+            return;
+        }
+    });
+
+    // Очистка модального окна при открытии
+    document.getElementById('addCategoryModal').addEventListener('show.bs.modal', function() {
+        document.getElementById('category-name').value = '';
+        document.getElementById('category-description').value = '';
+    });
+});
+</script>
 {% endblock %}

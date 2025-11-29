@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.contrib import messages
 from django.db import transaction
 from datetime import timedelta
-from .forms import ClassificationCategoriesForm
+from .forms import LetterUploadForm, ClassificationCategoriesForm
 from .models import Letter, AnalysisResult, GeneratedResponse, ClassificationCategory
 from .services.llm_client import LLMClient
 
@@ -17,7 +17,7 @@ def classification_settings(request):
     if request.method == 'POST':
         form = ClassificationCategoriesForm(request.POST)
         if form.is_valid():
-            categories_data = form.cleaned_data['categories']
+            categories_data = form.cleaned_data['categories_json']
 
             # Предупреждение о потере данных
             if Letter.objects.exclude(classification__isnull=True).exists() or AnalysisResult.objects.exists():
@@ -33,11 +33,8 @@ def classification_settings(request):
             # Если нет существующих данных, сразу применяем изменения
             return apply_classification_changes(request, categories_data)
     else:
-        # Заполняем форму существующими категориями
-        initial_text = ""
-        for category in custom_categories:
-            initial_text += f"{category.number}. {category.name}\n"
-        form = ClassificationCategoriesForm(initial={'categories': initial_text})
+        # Инициализируем пустую форму
+        form = ClassificationCategoriesForm()
 
     context = {
         'form': form,
@@ -84,11 +81,12 @@ def apply_classification_changes(request, categories_data):
             # Деактивируем старые категории
             ClassificationCategory.objects.filter(is_active=True).update(is_active=False)
 
-            # Создаем новые категории
-            for number, name in categories_data:
+            # Создаем новые категории из JSON данных
+            for category in categories_data:
                 ClassificationCategory.objects.create(
-                    number=number,
-                    name=name,
+                    number=category['number'],
+                    name=category['name'],
+                    description=category.get('description', ''),
                     is_active=True
                 )
 
@@ -415,15 +413,16 @@ def get_letter_statistics(request):
             'percentage': percentage
         }
 
-    # Статистика по классификациям
-    classification_choices = dict(Letter.CLASSIFICATION_CHOICES)
+    # Статистика по классификациям - используем метод модели
+    classification_choices = Letter.get_classification_choices()
     by_classification = {}
-    for class_value, class_name in classification_choices.items():
+    for class_value, class_name in classification_choices:
         count = Letter.objects.filter(classification=class_value).count()
         if count > 0:  # Показываем только те, где есть письма
             by_classification[class_value] = {
                 'name': class_name,
-                'count': count
+                'count': count,
+                'percentage': round((count / total_letters * 100), 1) if total_letters > 0 else 0
             }
 
     # Статистика по критичности
@@ -434,14 +433,31 @@ def get_letter_statistics(request):
         if count > 0:  # Показываем только те, где есть письма
             by_criticality[crit_value] = {
                 'name': crit_name,
-                'count': count
+                'count': count,
+                'percentage': round((count / total_letters * 100), 1) if total_letters > 0 else 0
             }
+
+    # Статистика по срочности (истекающие сроки)
+    time_threshold = timezone.now() + timedelta(hours=24)
+    urgent_letters = Letter.objects.filter(
+        sla_deadline__isnull=False,
+        sla_deadline__lte=time_threshold
+    ).count()
+
+    expired_letters = Letter.objects.filter(
+        sla_deadline__isnull=False,
+        sla_deadline__lt=timezone.now()
+    ).count()
 
     context = {
         'total_letters': total_letters,
         'by_status': by_status,
         'by_classification': by_classification,
         'by_criticality': by_criticality,
+        'urgent_letters': urgent_letters,
+        'expired_letters': expired_letters,
+        'urgent_percentage': round((urgent_letters / total_letters * 100), 1) if total_letters > 0 else 0,
+        'expired_percentage': round((expired_letters / total_letters * 100), 1) if total_letters > 0 else 0,
     }
 
     return render(request, 'statistics.html', context)

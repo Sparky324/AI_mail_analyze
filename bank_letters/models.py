@@ -165,13 +165,21 @@ class Letter(models.Model):
     @classmethod
     def get_classification_choices(cls):
         """Возвращает актуальные choices для классификации"""
-        from django.db import connection
         try:
+            # Проверяем, есть ли активные пользовательские категории
+            if hasattr(cls, '_classification_choices_cache'):
+                return cls._classification_choices_cache
+
             custom_categories = ClassificationCategory.objects.filter(is_active=True)
             if custom_categories.exists():
-                return [(cat.number, cat.name) for cat in custom_categories]
+                choices = [(cat.number, cat.name) for cat in custom_categories.order_by('number')]
+                cls._classification_choices_cache = choices
+                return choices
+            # Возвращаем базовые категории
+            cls._classification_choices_cache = cls.BASE_CLASSIFICATION_CHOICES
             return cls.BASE_CLASSIFICATION_CHOICES
         except:
+            # На случай ошибки БД, возвращаем базовые категории
             return cls.BASE_CLASSIFICATION_CHOICES
 
 
