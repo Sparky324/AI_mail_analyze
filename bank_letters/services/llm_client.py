@@ -20,7 +20,7 @@ class LLMClient:
         self.api_key = os.getenv('api_key')
         self.api_url = BASE_LLM_URL
         self.processor = ResponseProcessor()
-        self.data_folder = "data_doc"
+        self.data_folder = "data_simple"
         self.vector_store_id = None
         self.vector_store_name = "rag_store_abandoned"
 
@@ -48,6 +48,9 @@ class LLMClient:
 
         if rag_context:
             prompt += f"\n\nКонтекст для анализа:\n{rag_context}"
+            print(f'Контекст от RAG: {rag_context}')
+        else:
+            print(f'Контекста от RAG не было')
 
         try:
             res = self.client.responses.parse(
@@ -83,6 +86,9 @@ class LLMClient:
 
         if rag_context or rag_context_2:
             finished_prompt_text += f"\n\nКонтекст для анализа:\n{rag_context}\n{rag_context_2}"
+            print(f'Контекст от RAG: {rag_context}\n{rag_context_2}')
+        else:
+            print(f'Контекста от RAG не было')
 
 
         model = self.make_model(model_name=YAGPT_MODEL_NAME)
@@ -125,6 +131,9 @@ class LLMClient:
         finished_context = ""
         if rag_context or rag_context_2:
             finished_context = f"\nКонтекст для составления ответа:\n{rag_context}\n{rag_context_2}"
+            print(f'Контекст от RAG: {finished_context}')
+        else:
+            print(f'Контекста от RAG не было')
 
 
         model = self.make_model(model_name=YAGPT_MODEL_NAME)
