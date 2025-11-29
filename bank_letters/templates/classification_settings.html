@@ -6,7 +6,17 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="mb-0">Настройка классификаторов</h2>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="mb-0">Настройка классификаторов</h2>
+                        {% if custom_categories %}
+                        <form method="post" action="{% url 'reset_to_default_categories' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                Сбросить к базовым
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="card-body">
                     {% if messages %}
@@ -36,6 +46,20 @@
                                 <br><small class="text-muted">{{ category.description }}</small>
                                 {% endif %}
                             </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <strong>Используются базовые категории классификации.</strong>
+                        Вы можете настроить собственные категории или продолжить использование стандартных.
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Базовые категории:</h5>
+                        <ul class="list-group">
+                            {% for number, name in letter.get_classification_choices %}
+                            <li class="list-group-item"><strong>{{ number }}.</strong> {{ name }}</li>
                             {% endfor %}
                         </ul>
                     </div>

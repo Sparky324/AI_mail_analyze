@@ -158,6 +158,11 @@ class Letter(models.Model):
             return "Не определен"
 
     @classmethod
+    def get_base_classification_choices(cls):
+        """Возвращает базовые категории"""
+        return cls.BASE_CLASSIFICATION_CHOICES
+
+    @classmethod
     def get_classification_choices(cls):
         """Возвращает актуальные choices для классификации"""
         from django.db import connection

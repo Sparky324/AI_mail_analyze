@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h2 class="mb-0">Сброс к базовым классификаторам</h2>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <h5>Внимание! Это действие приведет к:</h5>
+                        <ul>
+                            <li>Удалению всех пользовательских категорий</li>
+                            <li>Удалению результатов анализа: <strong>{{ analysis_count }}</strong> записей</li>
+                            <li>Удалению сгенерированных ответов: <strong>{{ responses_count }}</strong> записей</li>
+                            <li>Сбросу данных классификации в <strong>{{ letters_count }}</strong> письмах</li>
+                        </ul>
+                        <p class="mb-0"><strong>Все письма будут помечены для повторного анализа с использованием базовых категорий.</strong></p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Базовые категории:</h5>
+                        <ul class="list-group">
+                            <li class="list-group-item"><strong>1.</strong> Запрос информации/документов</li>
+                            <li class="list-group-item"><strong>2.</strong> Официальная жалоба или претензия</li>
+                            <li class="list-group-item"><strong>3.</strong> Регуляторный запрос</li>
+                            <li class="list-group-item"><strong>4.</strong> Партнёрское предложение</li>
+                            <li class="list-group-item"><strong>5.</strong> Запрос на согласование</li>
+                            <li class="list-group-item"><strong>6.</strong> Уведомление или информирование</li>
+                            <li class="list-group-item"><strong>7.</strong> Разное</li>
+                        </ul>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" name="cancel" class="btn btn-secondary me-md-2">Отмена</button>
+                            <button type="submit" name="confirm" class="btn btn-danger">
+                                Подтвердить сброс
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

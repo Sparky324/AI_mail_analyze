@@ -13,4 +13,7 @@ urlpatterns = [
     path('statistics/', views.get_letter_statistics, name='letter_statistics'),
     path('classification-settings/', views.classification_settings, name='classification_settings'),
     path('classification-settings/confirm/', views.confirm_classification_change, name='confirm_classification_change'),
+    path('classification-settings/reset/', views.reset_to_default_categories, name='reset_to_default_categories'),
+    path('classification-settings/reset/confirm/', views.confirm_classification_reset,
+         name='confirm_classification_reset'),
 ]

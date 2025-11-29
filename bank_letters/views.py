@@ -445,3 +445,75 @@ def get_letter_statistics(request):
     }
 
     return render(request, 'statistics.html', context)
+
+
+def reset_to_default_categories(request):
+    """Сброс категорий к базовым настройкам"""
+    if request.method == 'POST':
+        # Предупреждение о потере данных
+        if Letter.objects.exclude(classification__isnull=True).exists() or AnalysisResult.objects.exists():
+            messages.warning(request,
+                             "Внимание! Все существующие результаты анализа писем будут удалены "
+                             "при сбросе к базовым категориям."
+                             )
+            return redirect('confirm_classification_reset')
+
+        # Если нет существующих данных, сразу применяем сброс
+        return apply_classification_reset(request)
+
+    return redirect('classification_settings')
+
+
+def confirm_classification_reset(request):
+    """Подтверждение сброса классификаторов"""
+    if request.method == 'POST':
+        if 'confirm' in request.POST:
+            return apply_classification_reset(request)
+        else:
+            return redirect('classification_settings')
+
+    # Подсчет данных для удаления
+    letters_count = Letter.objects.exclude(classification__isnull=True).count()
+    analysis_count = AnalysisResult.objects.count()
+    responses_count = GeneratedResponse.objects.count()
+
+    context = {
+        'letters_count': letters_count,
+        'analysis_count': analysis_count,
+        'responses_count': responses_count,
+    }
+    return render(request, 'confirm_classification_reset.html', context)
+
+
+def apply_classification_reset(request):
+    """Применение сброса к базовым категориям"""
+    try:
+        with transaction.atomic():
+            # Деактивируем все пользовательские категории
+            ClassificationCategory.objects.filter(is_active=True).update(is_active=False)
+
+            # Удаляем все данные анализа
+            AnalysisResult.objects.all().delete()
+            GeneratedResponse.objects.all().delete()
+
+            # Сбрасываем классификацию у всех писем
+            Letter.objects.all().update(
+                classification=None,
+                summary='',
+                criticality_level=None,
+                response_style=None,
+                processing_time_hours=None,
+                sla_deadline=None,
+                final_response='',
+                status='new'
+            )
+
+            messages.success(request,
+                             "Классификаторы успешно сброшены к базовым настройкам! "
+                             "Все письма помечены для повторного анализа."
+                             )
+
+    except Exception as e:
+        messages.error(request, f"Ошибка при сбросе классификаторов: {str(e)}")
+
+    return redirect('classification_settings')
