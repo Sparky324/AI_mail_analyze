@@ -25,7 +25,7 @@ def classification_settings(request):
                                  "Внимание! Все существующие результаты анализа писем будут удалены, "
                                  "так как изменятся категории классификации. Это необходимо для "
                                  "предотвращения конфликта данных."
-                                 )
+                                 , extra_tags='classification')
                 # Сохраняем данные в сессии для подтверждения
                 request.session['pending_categories'] = categories_data
                 return redirect('confirm_classification_change')
@@ -110,14 +110,14 @@ def apply_classification_changes(request, categories_data):
                 status='new'
             )
 
-            messages.success(request, "Классификаторы успешно обновлены! Все письма помечены для повторного анализа.")
+            messages.success(request, "Классификаторы успешно обновлены! Все письма помечены для повторного анализа.", extra_tags='classification')
 
             # Очищаем сессию
             if 'pending_categories' in request.session:
                 del request.session['pending_categories']
 
     except Exception as e:
-        messages.error(request, f"Ошибка при обновлении классификаторов: {str(e)}")
+        messages.error(request, f"Ошибка при обновлении классификаторов: {str(e)}", extra_tags='classification')
 
     return redirect('classification_settings')
 
@@ -304,7 +304,7 @@ def generate_responses(request, letter_id):
         letter.status = 'analyzed'  # Возвращаем статус к анализированному
         letter.save()
 
-        messages.success(request, "Старый ответ удален. Вы можете сгенерировать новый ответ.")
+        messages.success(request, "Старый ответ удален. Вы можете сгенерировать новый ответ.", extra_tags='response')
         return redirect('generate_responses', letter_id=letter.id)
 
     # Обработка выбора существующего ответа
@@ -325,11 +325,11 @@ def generate_responses(request, letter_id):
             letter.status = 'response_generated'
             letter.save()
 
-            messages.success(request, "Ответ выбран как финальный!")
+            messages.success(request, "Ответ выбран как финальный!", extra_tags='response')
             return redirect('generate_responses', letter_id=letter.id)
 
         except GeneratedResponse.DoesNotExist:
-            messages.error(request, "Выбранный ответ не найден.")
+            messages.error(request, "Выбранный ответ не найден.", extra_tags='response')
 
     # Обработка формы генерации нового ответа
     if request.method == 'POST' and 'generate_responses' in request.POST:
@@ -370,13 +370,12 @@ def generate_responses(request, letter_id):
                 letter.response_style = int(selected_style)
                 letter.save()
 
-                messages.success(request, "Ответ успешно сгенерирован!")
                 return redirect('generate_responses', letter_id=letter.id)
 
             except Exception as e:
                 error_message = f"Ошибка при генерации ответа: {str(e)}"
                 print(error_message)
-                messages.error(request, error_message)
+                messages.error(request, error_message, extra_tags='response')
                 # Не перенаправляем, остаемся на странице чтобы пользователь мог попробовать снова
 
     # Получение сгенерированных ответов
@@ -510,7 +509,7 @@ def reset_to_default_categories(request):
             messages.warning(request,
                              "Внимание! Все существующие результаты анализа писем будут удалены "
                              "при сбросе к базовым категориям."
-                             )
+                             , extra_tags='classification')
             return redirect('confirm_classification_reset')
 
         # Если нет существующих данных, сразу применяем сброс
@@ -569,10 +568,10 @@ def apply_classification_reset(request):
             messages.success(request,
                              "Классификаторы успешно сброшены к базовым настройкам! "
                              "Все письма помечены для повторного анализа."
-                             )
+                             , extra_tags='classification')
 
     except Exception as e:
-        messages.error(request, f"Ошибка при сбросе классификаторов: {str(e)}")
+        messages.error(request, f"Ошибка при сбросе классификаторов: {str(e)}", extra_tags='classification')
 
     return redirect('classification_settings')
 
@@ -620,11 +619,10 @@ def ask_question(request, letter_id):
                     answer=answer
                 )
 
-                messages.success(request, "Ответ от LLM получен!")
                 return redirect('ask_question', letter_id=letter.id)
 
             except Exception as e:
-                messages.error(request, f"Ошибка при получении ответа: {str(e)}")
+                messages.error(request, f"Ошибка при получении ответа: {str(e)}", extra_tags='question')
 
     context = {
         'letter': letter,
