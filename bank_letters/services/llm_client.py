@@ -3,7 +3,7 @@ import re
 from dotenv import load_dotenv
 from openai import OpenAI
 from bank_letters.services.models import RequestAnalysis, EmailGeneration
-from bank_letters.services.prompts import EMAIL_ANALYSIS_PROMPT, EMAIL_GENERATION_PROMPTS
+from bank_letters.services.prompts import EMAIL_ANALYSIS_PROMPT, EMAIL_GENERATION_PROMPTS, make_analyze_email_prompt
 from .response_processor import ResponseProcessor
 
 BASE_LLM_URL = 'https://rest-assistant.api.cloud.yandex.net/v1'
@@ -28,24 +28,27 @@ class LLMClient:
     def make_model(self, model_name):
         return f"gpt://{self.folder_id}/{model_name}"
 
-    def analyze_letter(self, text):
+    def analyze_letter(self, text, categories):
         """Анализ письма с преобразованием результата"""
         model = self.make_model(model_name=YAGPT_MODEL_NAME)
+
+        prompt = make_analyze_email_prompt(categories)
+        print(prompt)
 
         try:
             res = self.client.responses.parse(
                 model=model,
                 text_format=RequestAnalysis,
-                instructions=EMAIL_ANALYSIS_PROMPT,
+                instructions=prompt,
                 input=text
             )
 
             # Обрабатываем ответ через процессор
-            return self.processor.process_analysis_response(res.output_parsed)
+            return self.processor.process_analysis_response(res.output_parsed, categories)
 
         except Exception as e:
             print(f"Ошибка при анализе запроса: {e}")
-            return self.processor.process_analysis_response(None)
+            return self.processor.process_analysis_response(None, categories)
 
     import json
     import re
