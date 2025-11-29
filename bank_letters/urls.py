@@ -16,4 +16,5 @@ urlpatterns = [
     path('classification-settings/reset/', views.reset_to_default_categories, name='reset_to_default_categories'),
     path('classification-settings/reset/confirm/', views.confirm_classification_reset,
          name='confirm_classification_reset'),
+    path('letter/<int:letter_id>/ask-question/', views.ask_question, name='ask_question'),
 ]

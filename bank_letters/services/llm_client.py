@@ -1,6 +1,6 @@
-# llm_client.py - исправленная версия
 import os
 import re
+import time
 from dotenv import load_dotenv
 from pathlib import Path
 from openai import OpenAI
@@ -23,6 +23,10 @@ class LLMClient:
         self.data_folder = "data_simple"
         self.vector_store_id = None
         self.vector_store_name = "rag_store_abandoned"
+
+        # Настройки таймаутов
+        self.timeout_seconds = 30  # Увеличиваем таймаут
+        self.max_retries = 2  # Количество попыток
 
         self.client = OpenAI(
             base_url="https://rest-assistant.api.cloud.yandex.net/v1",
@@ -52,23 +56,30 @@ class LLMClient:
         else:
             print(f'Контекста от RAG не было')
 
-        try:
-            res = self.client.responses.parse(
-                model=model,
-                text_format=RequestAnalysis,
-                instructions=prompt,
-                input=text
-            )
+        for attempt in range(self.max_retries + 1):
+            try:
+                res = self.client.responses.parse(
+                    model=model,
+                    text_format=RequestAnalysis,
+                    instructions=prompt,
+                    input=text,
+                    timeout=self.timeout_seconds
+                )
 
-            # Обрабатываем ответ через процессор
-            return self.processor.process_analysis_response(res.output_parsed, categories)
+                # Обрабатываем ответ через процессор
+                return self.processor.process_analysis_response(res.output_parsed, categories)
 
-        except Exception as e:
-            print(f"Ошибка при анализе запроса: {e}")
-            return self.processor.process_analysis_response(None, categories)
+            except Exception as e:
+                print(f"Попытка {attempt + 1} не удалась: {e}")
+                if attempt < self.max_retries:
+                    print("Повторная попытка через 2 секунды...")
+                    time.sleep(2)
+                else:
+                    print("Все попытки не удались, используем ответ по умолчанию")
+                    return self.processor.process_analysis_response(None, categories)
 
     def generate_response(self, old_text_email, user_commentary, style):
-        """Генерация ответа в указанном стиле"""
+        """Генерация ответа в указанном стиле с улучшенной обработкой ошибок"""
         basic_prompt = EMAIL_GENERATION_PROMPTS[style]
 
         # Всегда гарантируем, что есть какой-то текст
@@ -92,25 +103,35 @@ class LLMClient:
 
 
         model = self.make_model(model_name=YAGPT_MODEL_NAME)
-        try:
-            res = self.client.responses.parse(
-                model=model,
-                text_format=EmailGeneration,
-                instructions="Ты электронный помошник для составления писем.",
-                input=finished_prompt_text
-            )
 
-            return res.output_parsed.response_email
-
-        except Exception as e:
-            print(f"Ошибка при генерации ответа: {e}")
-
-            # Пробуем альтернативный способ - прямой вызов без парсинга
+        # Пробуем основной метод с повторными попытками
+        for attempt in range(self.max_retries + 1):
             try:
-                return self._generate_response_fallback(finished_prompt_text, model)
-            except Exception as fallback_error:
-                print(f"Fallback также не сработал: {fallback_error}")
-                return f"Автоматический ответ: Благодарим за обращение. Ваше письмо получено и находится в обработке. С уважением, Банк."
+                print(f"Попытка генерации ответа #{attempt + 1}")
+                res = self.client.responses.parse(
+                    model=model,
+                    text_format=EmailGeneration,
+                    instructions="Ты электронный помошник для составления писем.",
+                    input=finished_prompt_text,
+                    timeout=self.timeout_seconds
+                )
+
+                return res.output_parsed.response_email
+
+            except Exception as e:
+                print(f"Попытка {attempt + 1} не удалась: {e}")
+                if attempt < self.max_retries:
+                    wait_time = (attempt + 1) * 3  # Увеличиваем задержку с каждой попыткой
+                    print(f"Повторная попытка через {wait_time} секунд...")
+                    time.sleep(wait_time)
+                else:
+                    print("Все попытки не удались, используем fallback")
+                    # Пробуем альтернативный способ
+                    try:
+                        return self._generate_response_fallback(finished_prompt_text, model)
+                    except Exception as fallback_error:
+                        print(f"Fallback также не сработал: {fallback_error}")
+                        return self._get_emergency_response(style)
 
     def generate_text(self, text_email, user_commentary):
         """Генерация текста для помощи в обработке сообщения в указанном стиле"""
@@ -158,13 +179,26 @@ class LLMClient:
                 return f"Не удалось получить ответ."
 
     def _generate_response_fallback(self, prompt, model):
-        """Альтернативный способ генерации ответа"""
+        """Альтернативный способ генерации ответа с упрощенным запросом"""
         try:
-            # Используем обычный completion вместо parse
+            print("Используем упрощенный fallback метод")
+
+            # Упрощаем промпт для fallback
+            simplified_prompt = f"""
+            Сгенерируй профессиональный ответ на банковское письмо.
+
+            Текст письма:
+            {prompt.split('Текст письма:')[1].split('Дополнительные указания:')[0] if 'Текст письма:' in prompt else prompt}
+
+            Ответ должен быть вежливым и профессиональным.
+            """
+
+            # Используем обычный completion вместо parse с меньшим таймаутом
             response = self.client.responses.create(
                 model=model,
                 instructions="Ты - AI ассистент для генерации ответов на банковские письма. Генерируй профессиональные ответы.",
-                input=prompt
+                input=simplified_prompt,
+                timeout=20  # Меньший таймаут для fallback
             )
 
             # Очищаем ответ от управляющих символов
@@ -174,6 +208,42 @@ class LLMClient:
         except Exception as e:
             print(f"Ошибка в fallback методе: {e}")
             raise e
+
+    def _get_emergency_response(self, style):
+        """Аварийный ответ когда все методы не сработали"""
+        emergency_responses = {
+            1: """Уважаемый отправитель,
+
+Благодарим Вас за обращение. Ваше письмо получено и находится в обработке. 
+В ближайшее время мы предоставим Вам подробный ответ.
+
+С уважением,
+Банк""",
+
+            2: """Уважаемый коллега,
+
+Подтверждаем получение Вашего письма. В настоящее время мы изучаем изложенные вопросы 
+и подготовим ответ в установленные сроки.
+
+С наилучшими пожеланиями,
+Команда Банка""",
+
+            3: """Уважаемый клиент,
+
+Спасибо за Ваше обращение! Мы получили Ваше письмо и уже начали его обработку.
+Наши специалисты изучат Ваш запрос и свяжутся с Вами в ближайшее время.
+
+С заботой о Вас,
+Ваш Банк""",
+
+            4: """Получено. В обработке. Ответ будет предоставлен в установленные сроки.
+
+Банк"""
+        }
+
+        response = emergency_responses.get(style, emergency_responses[2])
+        print("Используем аварийный заготовленный ответ")
+        return response
 
     def _clean_response_text(self, text):
         """Очищает текст от управляющих символов"""

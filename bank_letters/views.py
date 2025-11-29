@@ -1,4 +1,3 @@
-# views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
@@ -6,9 +5,10 @@ from django.contrib import messages
 from django.db import transaction
 from datetime import timedelta
 from .forms import LetterUploadForm, ClassificationCategoriesForm
-from .models import Letter, AnalysisResult, GeneratedResponse, ClassificationCategory
+from .models import Letter, AnalysisResult, GeneratedResponse, ClassificationCategory, LetterQuestion
 from .services.llm_client import LLMClient
 
+llm_client = LLMClient()
 
 def classification_settings(request):
     """Настройка классификаторов"""
@@ -210,8 +210,6 @@ def analyze_letter(request, letter_id):
     if letter.status != 'new':
         return redirect('analysis_results', letter_id=letter.id)
 
-    llm_client = LLMClient()
-
     # Для LLM используем метод с полными данными
     categories_for_llm = Letter.get_classification_choices_for_llm()
 
@@ -262,8 +260,11 @@ def analyze_letter(request, letter_id):
 
 
 def analysis_results(request, letter_id):
-    """Просмотр результатов анализа"""
+    """Просмотр результатов анализа с ссылками на вопросы и генерацию ответов"""
     letter = get_object_or_404(Letter, id=letter_id)
+
+    from datetime import timedelta
+    time_threshold = timezone.now() + timedelta(hours=24)
 
     try:
         analysis_result = AnalysisResult.objects.get(letter=letter)
@@ -271,39 +272,71 @@ def analysis_results(request, letter_id):
     except AnalysisResult.DoesNotExist:
         analysis_data = {}
 
+    # Проверяем, есть ли вопросы к этому письму
+    has_questions = LetterQuestion.objects.filter(letter=letter).exists()
+
     context = {
         'letter': letter,
         'analysis': analysis_data,
+        'has_questions': has_questions,
+        'now': timezone.now(),
+        'time_threshold': time_threshold,
     }
 
     return render(request, 'analysis_results.html', context)
 
 
 def generate_responses(request, letter_id):
-    """Генерация вариантов ответов с возможностью выбора стиля и пожеланий"""
+    """Генерация вариантов ответов с улучшенной обработкой ошибок"""
     letter = get_object_or_404(Letter, id=letter_id)
 
     # Если письмо еще не анализировалось, перенаправляем на анализ
     if letter.status == 'new':
         return redirect('analyze_letter', letter_id=letter.id)
 
-    # Обработка сброса и генерации нового ответа
+    # Обработка сброса и генерации нового ответа - ДОБАВЛЕНО ПОЛНОЕ ОЧИЩЕНИЕ
     if request.method == 'POST' and 'reset' in request.POST:
         # Удаляем существующие ответы
         GeneratedResponse.objects.filter(letter=letter).delete()
-        # Сбрасываем статус
-        letter.status = 'analyzed'
+        # Сбрасываем финальный ответ и связанные поля
+        letter.final_response = ''
+        letter.response_style = None
+        letter.status = 'analyzed'  # Возвращаем статус к анализированному
         letter.save()
+
+        messages.success(request, "Старый ответ удален. Вы можете сгенерировать новый ответ.")
         return redirect('generate_responses', letter_id=letter.id)
 
-    # Обработка формы выбора стиля и пожеланий
+    # Обработка выбора существующего ответа
+    if request.method == 'POST' and 'selected_response' in request.POST:
+        selected_response_id = request.POST.get('selected_response')
+        try:
+            # Сбрасываем все выбранные ответы
+            GeneratedResponse.objects.filter(letter=letter).update(is_selected=False)
+
+            # Устанавливаем выбранный ответ
+            selected_response = GeneratedResponse.objects.get(id=selected_response_id, letter=letter)
+            selected_response.is_selected = True
+            selected_response.save()
+
+            # Сохраняем как финальный ответ
+            letter.final_response = selected_response.response_text
+            letter.response_style = selected_response.response_style
+            letter.status = 'response_generated'
+            letter.save()
+
+            messages.success(request, "Ответ выбран как финальный!")
+            return redirect('generate_responses', letter_id=letter.id)
+
+        except GeneratedResponse.DoesNotExist:
+            messages.error(request, "Выбранный ответ не найден.")
+
+    # Обработка формы генерации нового ответа
     if request.method == 'POST' and 'generate_responses' in request.POST:
         selected_style = request.POST.get('response_style')
         user_commentary = request.POST.get('user_commentary', '').strip()
 
         if selected_style:
-            llm_client = LLMClient()
-
             # Если пожелания пустые, создаем базовое описание
             if not user_commentary:
                 user_commentary = f"""
@@ -312,57 +345,39 @@ def generate_responses(request, letter_id):
                 Уровень критичности: {letter.get_criticality_level_display()}
                 """
 
-            # Генерируем ответ только для выбранного стиля
-            response_text = llm_client.generate_response(
-                old_text_email=letter.original_text,
-                user_commentary=user_commentary,
-                style=int(selected_style)
-            )
+            try:
+                # Генерируем ответ только для выбранного стиля
+                response_text = llm_client.generate_response(
+                    old_text_email=letter.original_text,
+                    user_commentary=user_commentary,
+                    style=int(selected_style)
+                )
 
-            # Удаляем старые ответы для этого письма
-            GeneratedResponse.objects.filter(letter=letter).delete()
+                # Удаляем старые ответы для этого письма
+                GeneratedResponse.objects.filter(letter=letter).delete()
 
-            # Создаем новый ответ
-            generated_response = GeneratedResponse.objects.create(
-                letter=letter,
-                response_style=int(selected_style),
-                response_text=response_text
-            )
+                # Создаем новый ответ
+                generated_response = GeneratedResponse.objects.create(
+                    letter=letter,
+                    response_style=int(selected_style),
+                    response_text=response_text,
+                    is_selected=True  # Помечаем как выбранный сразу
+                )
 
-            # Помечаем как выбранный
-            generated_response.is_selected = True
-            generated_response.save()
+                # Сохраняем финальный ответ в письмо
+                letter.final_response = response_text
+                letter.status = 'response_generated'
+                letter.response_style = int(selected_style)
+                letter.save()
 
-            # Сохраняем финальный ответ в письмо
-            letter.final_response = response_text
-            letter.status = 'response_generated'
-            letter.response_style = int(selected_style)
-            letter.save()
+                messages.success(request, "Ответ успешно сгенерирован!")
+                return redirect('generate_responses', letter_id=letter.id)
 
-            return redirect('generate_responses', letter_id=letter.id)
-
-    # Обработка выбора готового ответа
-    if request.method == 'POST' and 'selected_response' in request.POST:
-        selected_response_id = request.POST.get('selected_response')
-        if selected_response_id:
-            # Сбрасываем все выбранные ответы
-            GeneratedResponse.objects.filter(letter=letter).update(is_selected=False)
-
-            # Устанавливаем выбранный ответ
-            selected_response = GeneratedResponse.objects.get(
-                id=selected_response_id,
-                letter=letter
-            )
-            selected_response.is_selected = True
-            selected_response.save()
-
-            # Сохраняем финальный ответ в письмо
-            letter.final_response = selected_response.response_text
-            letter.response_style = selected_response.response_style
-            letter.status = 'done'
-            letter.save()
-
-            return redirect('letter_detail', letter_id=letter.id)
+            except Exception as e:
+                error_message = f"Ошибка при генерации ответа: {str(e)}"
+                print(error_message)
+                messages.error(request, error_message)
+                # Не перенаправляем, остаемся на странице чтобы пользователь мог попробовать снова
 
     # Получение сгенерированных ответов
     responses = GeneratedResponse.objects.filter(letter=letter)
@@ -560,3 +575,60 @@ def apply_classification_reset(request):
         messages.error(request, f"Ошибка при сбросе классификаторов: {str(e)}")
 
     return redirect('classification_settings')
+
+
+def ask_question(request, letter_id):
+    """Страница для задавания вопросов LLM о письме"""
+    letter = get_object_or_404(Letter, id=letter_id)
+
+    # Получаем историю вопросов к этому письму
+    questions = LetterQuestion.objects.filter(letter=letter).order_by('asked_at')
+
+    if request.method == 'POST':
+        question_text = request.POST.get('question', '').strip()
+
+        if question_text:
+            # Подготавливаем контекст для LLM
+            context = f"""
+            ИНФОРМАЦИЯ О ПИСЬМЕ:
+            Отправитель: {letter.sender}
+            Тема: {letter.subject}
+            Текст письма: {letter.original_text}
+
+            РЕЗУЛЬТАТЫ АНАЛИЗА:
+            Тип: {letter.get_classification_display()}
+            Критичность: {letter.get_criticality_level_display()}
+            Краткое содержание: {letter.summary}
+
+            ВОПРОС ПОЛЬЗОВАТЕЛЯ: {question_text}
+
+            Ответь на вопрос пользователя, основываясь на информации о письме.
+            Будь точным и полезным.
+            """
+
+            try:
+                # Используем существующий метод генерации ответа
+                answer = llm_client.generate_text(
+                    text_email=context,
+                    user_commentary=question_text,
+                )
+
+                # Сохраняем вопрос и ответ
+                LetterQuestion.objects.create(
+                    letter=letter,
+                    question=question_text,
+                    answer=answer
+                )
+
+                messages.success(request, "Ответ от LLM получен!")
+                return redirect('ask_question', letter_id=letter.id)
+
+            except Exception as e:
+                messages.error(request, f"Ошибка при получении ответа: {str(e)}")
+
+    context = {
+        'letter': letter,
+        'questions': questions,
+    }
+
+    return render(request, 'ask_question.html', context)

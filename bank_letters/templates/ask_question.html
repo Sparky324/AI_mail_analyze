@@ -1,0 +1,109 @@
+<!-- templates/ask_question.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Хлебные крошки -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'letter_list' %}">Все письма</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'letter_detail' letter.id %}">Письмо #{{ letter.id }}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'analysis_results' letter.id %}">Анализ</a></li>
+                    <li class="breadcrumb-item active">Вопросы к LLM</li>
+                </ol>
+            </nav>
+
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Вопросы к письму #{{ letter.id }}</h1>
+                <div>
+                    <a href="{% url 'analysis_results' letter.id %}" class="btn btn-outline-secondary me-2">
+                        ← Назад к анализу
+                    </a>
+                    <a href="{% url 'generate_responses' letter.id %}" class="btn btn-primary">
+                        Перейти к генерации ответа →
+                    </a>
+                </div>
+            </div>
+
+            <!-- Информация о письме -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Информация о письме</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Отправитель:</strong> {{ letter.sender }}</p>
+                            <p><strong>Тема:</strong> {{ letter.subject }}</p>
+                            <p><strong>Тип:</strong> {{ letter.get_classification_display }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Критичность:</strong>
+                                <span class="badge bg-{% if letter.criticality_level == 1 %}success{% elif letter.criticality_level == 2 %}warning{% elif letter.criticality_level == 3 %}danger{% else %}dark{% endif %}">
+                                    {{ letter.get_criticality_level_display }}
+                                </span>
+                            </p>
+                            <p><strong>Краткое содержание:</strong> {{ letter.summary }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Форма для нового вопроса -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Задать новый вопрос</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="question" class="form-label">Ваш вопрос к LLM:</label>
+                            <textarea class="form-control" id="question" name="question" rows="4"
+                                      placeholder="Задайте вопрос о письме, например: 'Какие конкретные действия требуются от нас?' или 'Есть ли срочные сроки в этом письме?'"
+                                      required></textarea>
+                            <div class="form-text">
+                                AI ассистент ответит на ваш вопрос, используя информацию из письма и результаты анализа.
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Отправить вопрос</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- История вопросов и ответов -->
+            {% if questions %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">История вопросов и ответов</h5>
+                </div>
+                <div class="card-body">
+                    {% for qa in questions reversed %}
+                    <div class="mb-4 pb-4 {% if not forloop.last %}border-bottom{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="text-primary mb-0">Вопрос:</h6>
+                            <small class="text-muted">{{ qa.asked_at|date:"d.m.Y H:i" }}</small>
+                        </div>
+                        <p class="mb-3">{{ qa.question }}</p>
+
+                        <h6 class="text-success mb-2">Ответ AI:</h6>
+                        <div class="bg-light p-3 rounded">
+                            {{ qa.answer|linebreaks }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <h5>Пока нет вопросов</h5>
+                <p class="mb-0">Задайте первый вопрос к AI ассистенту, чтобы получить дополнительную информацию о письме.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

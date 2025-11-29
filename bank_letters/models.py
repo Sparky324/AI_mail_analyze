@@ -240,3 +240,19 @@ class GeneratedResponse(models.Model):
     class Meta:
         verbose_name = "Сгенерированный ответ"
         verbose_name_plural = "Сгенерированные ответы"
+
+
+class LetterQuestion(models.Model):
+    """Вопросы к письму для LLM"""
+    letter = models.ForeignKey(Letter, on_delete=models.CASCADE, verbose_name="Письмо")
+    question = models.TextField(verbose_name="Вопрос")
+    answer = models.TextField(verbose_name="Ответ LLM")
+    asked_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата вопроса")
+
+    class Meta:
+        verbose_name = "Вопрос к письму"
+        verbose_name_plural = "Вопросы к письмам"
+        ordering = ['-asked_at']
+
+    def __str__(self):
+        return f"Вопрос к письму #{self.letter.id}"

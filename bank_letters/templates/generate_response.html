@@ -1,192 +1,165 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Генерация ответов</h1>
-    <a href="{% url 'letter_detail' letter.id %}" class="btn btn-secondary">← Назад к письму</a>
-</div>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Хлебные крошки -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'letter_list' %}">Все письма</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'letter_detail' letter.id %}">Письмо #{{ letter.id }}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'analysis_results' letter.id %}">Анализ</a></li>
+                    <li class="breadcrumb-item active">Генерация ответа</li>
+                </ol>
+            </nav>
 
-<!-- Информация о письме -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">Информация о письме</h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <p><strong>Отправитель:</strong> {{ letter.sender }}</p>
-                <p><strong>Тема:</strong> {{ letter.subject }}</p>
-                <p><strong>Тип:</strong> {{ letter.get_classification_display }}</p>
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Генерация ответа для письма #{{ letter.id }}</h1>
+                <a href="{% url 'analysis_results' letter.id %}" class="btn btn-outline-secondary">
+                    ← Назад к анализу
+                </a>
             </div>
-            <div class="col-md-6">
-                <p><strong>Критичность:</strong> {{ letter.get_criticality_level_display }}</p>
-                <p><strong>Статус:</strong>
-                    <span class="badge bg-{% if letter.status == 'done' %}success{% else %}warning{% endif %}">
-                        {{ letter.get_status_display }}
-                    </span>
-                </p>
-                {% if letter.response_style %}
-                <p><strong>Текущий стиль:</strong> {{ letter.get_response_style_display }}</p>
-                {% endif %}
-            </div>
-        </div>
-        {% if letter.summary %}
-        <div class="mt-3">
-            <strong>Краткое содержание:</strong>
-            <p class="mb-0">{{ letter.summary }}</p>
-        </div>
-        {% endif %}
-    </div>
-</div>
 
-<!-- Форма выбора стиля и пожеланий показывается только если письмо не завершено и нет ответов -->
-{% if letter.status != 'done' %}
-    {% if not responses %}
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Настройка ответа</h5>
-        </div>
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="response_style" class="form-label">
-                                <strong>Выберите стиль ответа:</strong>
-                            </label>
-                            <select name="response_style" id="response_style" class="form-select" required>
-                                <option value="">-- Выберите стиль --</option>
-                                {% for style_id, style_name in response_styles.items %}
-                                    <option value="{{ style_id }}"
-                                        {% if letter.response_style == style_id %}selected{% endif %}>
-                                        {{ style_name }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">
-                                {% if letter.response_style %}
-                                    Текущий выбор: <strong>{{ letter.get_response_style_display }}</strong>
-                                {% else %}
-                                    Рекомендованный: <strong>{{ letter.get_response_style_display }}</strong>
-                                {% endif %}
-                            </div>
+            <!-- Информация о письме -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Информация о письме</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Отправитель:</strong> {{ letter.sender }}</p>
+                            <p><strong>Тема:</strong> {{ letter.subject }}</p>
+                            <p><strong>Тип:</strong> {{ letter.get_classification_display }}</p>
                         </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="user_commentary" class="form-label">
-                                <strong>Ваши пожелания к ответу (необязательно):</strong>
-                            </label>
-                            <textarea name="user_commentary" id="user_commentary"
-                                      class="form-control" rows="3"
-                                      placeholder="Например: Уточнить сроки, предложить альтернативу, выразить сожаление... (можно оставить пустым)"></textarea>
-                            <div class="form-text">
-                                Необязательное поле. Укажите дополнительные требования к ответу.
-                            </div>
+                        <div class="col-md-6">
+                            <p><strong>Критичность:</strong>
+                                <span class="badge bg-{% if letter.criticality_level == 1 %}success{% elif letter.criticality_level == 2 %}warning{% elif letter.criticality_level == 3 %}danger{% else %}dark{% endif %}">
+                                    {{ letter.get_criticality_level_display }}
+                                </span>
+                            </p>
+                            <p><strong>Краткое содержание:</strong> {{ letter.summary }}</p>
                         </div>
                     </div>
                 </div>
-
-                <div class="mt-3">
-                    <button type="submit" name="generate_responses" class="btn btn-success btn-lg">
-                        Сгенерировать ответ
-                    </button>
-                    <a href="{% url 'letter_detail' letter.id %}" class="btn btn-outline-secondary">Отмена</a>
-                </div>
-            </form>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Сгенерированные ответы -->
-    {% if responses %}
-    <div class="card">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0">Сгенерированный ответ</h5>
-        </div>
-        <div class="card-body">
-            <div class="alert alert-info">
-                <strong>Ответ успешно сгенерирован!</strong> Вы можете выбрать этот ответ или сгенерировать другой.
             </div>
 
-            <form method="post">
-                {% csrf_token %}
-
-                {% for response in responses %}
-                <div class="card mb-3 {% if response.is_selected %}border-success bg-light{% endif %}">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>
-                                {% for style_id, style_name in response_styles.items %}
-                                    {% if style_id == response.response_style %}
-                                        {{ style_name }}
-                                    {% endif %}
-                                {% endfor %}
-                            </strong>
-                            {% if response.is_selected %}
-                                <span class="badge bg-success ms-2">Текущий выбор</span>
-                            {% endif %}
-                        </div>
-                        <div>
-                            {% if not response.is_selected %}
-                                <button type="submit" name="selected_response" value="{{ response.id }}"
-                                        class="btn btn-sm btn-success">
-                                    Выбрать этот ответ
-                                </button>
-                            {% endif %}
-                        </div>
+            <!-- Если уже есть выбранный ответ -->
+            {% if letter.final_response %}
+            <div class="card mb-4 border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> Финальный ответ</h5>
+                </div>
+                <div class="card-body">
+                    <div class="bg-light p-4 rounded border">
+                        {{ letter.final_response|linebreaks }}
+                    </div>
+                    <div class="mt-3">
+                        <p><strong>Стиль ответа:</strong> {{ letter.get_response_style_display }}</p>
+                        <form method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" name="reset" class="btn btn-outline-warning">
+                                <i class="bi bi-arrow-repeat"></i> Сгенерировать новый ответ
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+                <!-- Если есть сгенерированные ответы -->
+                {% if responses %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Сгенерированные варианты ответов</h5>
                     </div>
                     <div class="card-body">
-                        <p class="card-text">{{ response.response_text|linebreaks }}</p>
-                        <small class="text-muted">
-                            Сгенерирован: {{ response.generated_at|date:"d.m.Y H:i" }}
-                        </small>
+                        {% for response in responses %}
+                        <div class="mb-4 p-3 border rounded {% if response.is_selected %}border-success bg-light-success{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6>Стиль:
+                                    {% for style_value, style_name in response_styles.items %}
+                                        {% if style_value == response.response_style %}
+                                            {{ style_name }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </h6>
+                                {% if not response.is_selected %}
+                                <form method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="selected_response" value="{{ response.id }}">
+                                    <button type="submit" class="btn btn-success btn-sm">Выбрать этот ответ</button>
+                                </form>
+                                {% else %}
+                                <span class="badge bg-success">Выбран</span>
+                                {% endif %}
+                            </div>
+                            <div class="bg-light p-3 rounded">
+                                {{ response.response_text|linebreaks }}
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
-                {% endfor %}
-            </form>
+                {% else %}
+                <!-- Форма генерации нового ответа -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Генерация нового ответа</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Стиль ответа:</label>
+                                        <select name="response_style" class="form-select" required>
+                                            {% for style_value, style_name in response_styles.items %}
+                                                <option value="{{ style_value }}">{{ style_name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Дополнительные указания (необязательно):</label>
+                                <textarea name="user_commentary" class="form-control" rows="4"
+                                          placeholder="Укажите дополнительные пожелания к стилю или содержанию ответа..."></textarea>
+                            </div>
+                            <button type="submit" name="generate_responses" class="btn btn-primary">
+                                Сгенерировать ответ
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
 
-            <!-- Кнопка для генерации нового ответа -->
-            <div class="mt-4">
-                <form method="post">
-                    {% csrf_token %}
-                    <button type="submit" name="reset" value="true" class="btn btn-outline-warning">
-                        Сгенерировать другой ответ
-                    </button>
-                    <a href="{% url 'letter_detail' letter.id %}" class="btn btn-success">
-                        Завершить и вернуться к письму
-                    </a>
-                </form>
+            <!-- Блок завершения работы -->
+            {% if letter.status == 'response_generated' %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Завершение работы</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <form method="post" action="{% url 'update_letter_status' letter.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="done">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle"></i> Завершить обработку письма
+                            </button>
+                        </form>
+                    </div>
+                    <p class="text-muted mt-2 mb-0">
+                        После завершения все срочные уведомления и дедлайны будут скрыты.
+                    </p>
+                </div>
             </div>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
-{% else %}
-<!-- Если письмо завершено, показываем финальный ответ -->
-<div class="card mb-4 border-success">
-    <div class="card-header bg-success text-white">
-        <h5 class="mb-0">Финальный ответ</h5>
-    </div>
-    <div class="card-body">
-        <div class="bg-light p-3 border rounded">
-            {{ letter.final_response|linebreaks }}
-        </div>
-        <div class="mt-3">
-            <small class="text-muted">
-                <strong>Стиль ответа:</strong> {{ letter.get_response_style_display }} |
-                <strong>Статус:</strong> Завершено
-            </small>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- Кнопка возврата -->
-<div class="mt-4">
-    <a href="{% url 'letter_detail' letter.id %}" class="btn btn-secondary">← Назад к письму</a>
-    <a href="{% url 'letter_list' %}" class="btn btn-outline-secondary">Назад к списку</a>
 </div>
 {% endblock %}
